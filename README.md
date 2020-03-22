@@ -1,2 +1,2 @@
 # svg_vae_pytorch
-Re-implementation of the fuck (tensorflow) version
+Re-implementation of the tensorflow version
