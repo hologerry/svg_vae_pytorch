@@ -65,23 +65,25 @@ class ConditionalInstanceNorm(nn.Module):
             nn.init.ones_(self.weight)
             nn.init.zeros_(self.bias)
 
-    def _check_input_dim(self, input):
+    def _check_input_dim(self, inpt):
         raise NotImplementedError
 
-    def forward(self, input, label):
-        # self._check_input_dim(input)
-        if label >= self.num_labels:
+    def forward(self, inpt, label):
+        # self._check_input_dim(inpt)
+        ins = F.instance_norm(
+            inpt, self.running_mean, self.running_var, None, None,
+            self.training or not self.track_running_stats,
+            self.momentum, self.eps)
+        if torch.max(label) >= self.num_labels:
             raise ValueError('Expected label to be < than {} but got {}'.format(self.num_labels, label))
         w = self.weight
         b = self.bias
         if self.affine:
-            w = self.weight[label, :]
-            b = self.bias[label, :]
-
-        return F.instance_norm(
-            input, self.running_mean, self.running_var, w, b,
-            self.training or not self.track_running_stats,
-            self.momentum, self.eps)
+            w = self.weight[label].view(inpt.size(0), self.num_features).unsqueeze(2).unsqueeze(3)
+            b = self.bias[label].view(inpt.size(0), self.num_features).unsqueeze(2).unsqueeze(3)
+            return ins * w + b
+        else:
+            return ins
 
     def extra_repr(self):
         return '{num_features}, eps={eps}, momentum={momentum}, affine={affine}, ' \
@@ -109,12 +111,15 @@ class ConvCINReLu(nn.Module):
     and a relu activation.
     The forward pass takes in label as an input that is used in normalization.
     """
-    def __init__(self, inch, outch, kernel_size, stride=2, labels=1, activation='relu'):
+    def __init__(self, inch, outch, kernel_size, stride, num_categories, activation='relu'):
         super(ConvCINReLu, self).__init__()
         padding = kernel_size // 2
-        self.reflection = nn.ReflectionPad2d(padding)
+        if kernel_size % 2 == 1:
+            self.reflection = nn.ReflectionPad2d(padding)
+        else:
+            self.reflection = nn.ReflectionPad2d((padding-1, padding, padding-1, padding))
         self.conv = nn.Conv2d(inch, outch, kernel_size, stride, padding=0)
-        self.norm = ConditionalInstanceNorm(outch, labels)
+        self.norm = ConditionalInstanceNorm(outch, num_categories)
         if activation == 'relu':
             self.act = nn.ReLU()
         elif activation == 'leaky':
@@ -129,10 +134,10 @@ class ConvCINReLu(nn.Module):
 
 
 class UpsamplingConv(nn.Module):
-    def __init__(self, inch, outch, kernel_size, stride, labels, activation='relu'):
+    def __init__(self, inch, outch, kernel_size, stride, num_categories, activation='relu'):
         super(UpsamplingConv, self).__init__()
         self.upsample = nn.Upsample(scale_factor=stride, mode='bilinear', align_corners=False)
-        self.conv = ConvCINReLu(inch, outch, kernel_size, stride=1, labels=labels)
+        self.conv = ConvCINReLu(inch, outch, kernel_size, stride=1, num_categories=num_categories)
 
     def forward(self, x, label):
         h1 = self.upsample(x)
@@ -141,10 +146,10 @@ class UpsamplingConv(nn.Module):
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, inch, outch, kernel_size, labels, activation='relu'):
+    def __init__(self, inch, outch, kernel_size, num_categories, activation='relu'):
         super(ResidualBlock, self).__init__()
-        self.conv1 = ConvCINReLu(inch, outch, kernel_size, stride=1, labels=labels)
-        self.conv2 = ConvCINReLu(outch, inch, kernel_size, stride=1, labels=labels)
+        self.conv1 = ConvCINReLu(inch, outch, kernel_size, stride=1, num_categories=num_categories)
+        self.conv2 = ConvCINReLu(outch, inch, kernel_size, stride=1, num_categories=num_categories)
 
     def forward(self, x, label):
         h1 = self.conv1(x, label)
