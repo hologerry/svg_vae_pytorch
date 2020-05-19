@@ -118,3 +118,4 @@ if __name__ == "__main__":
     rec_loss = torch.mean(rec_loss)
     training_loss = -elbo
     print(output.mean, bottleneck_kl, rec_loss, training_loss)
+    # TODO: implement the def loss(self, logits, features)
