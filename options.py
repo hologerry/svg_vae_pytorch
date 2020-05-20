@@ -40,7 +40,7 @@ def get_parser_svg_decoder():
     parser.add_argument('--hidden_size', type=int, default=1024, help='svg decoder hidden size')
     parser.add_argument('--num_hidden_layers', type=int, default=4, help='svg decoder number of hidden layers')
     parser.add_argument('--force_full_predict', type=bool, default=True, help='')
-    parser.add_argument('--dropout', type=float, default=0.5, help='svg decoder dropout layer probability')
+    # parser.add_argument('--dropout', type=float, default=0.5, help='svg decoder dropout layer probability')
     parser.add_argument('--learning_rate_warmup_steps', type=int, default=1e5, help='')
     parser.add_argument('--vocab_size', type=int, default=None, help='')
     # loss params
@@ -50,7 +50,8 @@ def get_parser_svg_decoder():
     parser.add_argument('--rec_dropout', type=int, default=0.3, help='LayerNormLSTMCelll, recurrent dropout')
     # Decode architecture
     parser.add_argument('--twice_decoder', type=bool, default=False, help='')
-    parser.add_argument('--sg_bottleneck', type=bool, default=True, help='')
+    parser.add_argument('--sg_bottleneck', type=bool, default=True,
+                        help='stop gradient bottleneck, if True, fix the vae train the decoder only')
     parser.add_argument('--condition_on_sln', type=bool, default=False, help='')
     parser.add_argument('--use_cls', type=bool, default=True, help='')
     # MDNl loss
