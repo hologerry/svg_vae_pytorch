@@ -65,15 +65,15 @@ def create_db(opts):
                 example = svg_utils.create_example(pathunibfp)
                 cur_process_processed_font_glyphs.append(example)
 
-        processes = [mp.Process(target=process, args=(pid)) for pid in range(opts.process_nums + 1)]
-
-        for p in processes:
-            p.start()
-        for p in processes:
-            p.join()
-
         pickle.dump(cur_process_processed_font_glyphs, cur_process_pkl_file)
         cur_process_pkl_file.close()
+
+    processes = [mp.Process(target=process, args=(pid)) for pid in range(opts.process_nums + 1)]
+
+    for p in processes:
+        p.start()
+    for p in processes:
+        p.join()
 
 
 def combine_perprocess_pkl_db(opts):
@@ -109,7 +109,7 @@ def main():
 
     if not os.path.exists(opts.log_dir):
         os.makedirs(opts.log_dir)
-    opts.num_processes = mp.cpu_count() - 1
+    opts.num_processes = mp.cpu_count() - 2
 
     create_db(opts)
 
