@@ -39,8 +39,10 @@ NUM_ARGS = {'v': 1, 'V': 1, 'h': 1, 'H': 1, 'a': 7, 'A': 7, 'l': 2, 'L': 2,
 CMDS_LIST = 'zhvmltsqcaHVMLTSQCA'
 CMD_MAPPING = {cmd: i for i, cmd in enumerate(CMDS_LIST)}
 
+FEATURE_DIM = 10
 
-# ############################## GENERAL UTILS #################################
+
+############################### GENERAL UTILS #################################
 def grouper(iterable, batch_size, fill_value=None):
     """Helper method for returning batches of size batch_size of a dataset."""
     # grouper('ABCDEF', 3) -> 'ABC', 'DEF'
@@ -48,7 +50,7 @@ def grouper(iterable, batch_size, fill_value=None):
     return zip_longest(*args, fillvalue=fill_value)
 
 
-def map_uni_to_alphanum(uni):
+def _map_uni_to_alphanum(uni):
     """Maps [0-9 A-Z a-z] to numbers 0-62."""
     if 48 <= uni <= 57:
         return uni - 48
@@ -57,18 +59,18 @@ def map_uni_to_alphanum(uni):
     return uni - 97 + 36
 
 
-def map_uni_to_alpha(uni):
+def _map_uni_to_alpha(uni):
     """Maps [A-Z a-z] to numbers 0-52."""
     if 65 <= uni <= 90:
         return uni - 65
     return uni - 97 + 26
 
 
-# ############ UTILS FOR CONVERTING SFD/SPLINESETS TO SVG PATHS ################
+############# UTILS FOR CONVERTING SFD/SPLINESETS TO SVG PATHS ################
 def _get_spline(sfd):
     if 'SplineSet' not in sfd:
         return ''
-    pro = sfd[sfd.index('SplineSet')+10:]
+    pro = sfd[sfd.index('SplineSet') + 10:]  # 10 is the 'SplineSet'
     pro = pro[:pro.index('EndSplineSet')]
     return pro
 
@@ -104,13 +106,13 @@ def _spline_to_path_list(spline, height, replace_with_prev=False):
     return path
 
 
-def sfd_to_path_list(single, replace_with_prev=False):
+def _sfd_to_path_list(single, replace_with_prev=False):
     """Converts the given SFD glyph into a path."""
     return _spline_to_path_list(_get_spline(single['sfd']), single['vwidth'], replace_with_prev)
 
 
-# ################### UTILS FOR PROCESSING TOKENIZED PATHS #####################
-def add_missing_cmds(path, remove_zs=False):
+#################### UTILS FOR PROCESSING TOKENIZED PATHS #####################
+def _add_missing_cmds(path, remove_zs=False):
     """Adds missing cmd tags to the commands in the svg."""
     # For instance, the command 'a' takes 7 arguments, but some SVGs declare:
     #   a 1 2 3 4 5 6 7 8 9 10 11 12 13 14
@@ -169,7 +171,7 @@ def _normalize_args(arglist, norm, add=None, flip=False):
     return new_arglist
 
 
-def normalize_based_on_viewbox(path, viewbox):
+def _normalize_based_on_viewbox(path, viewbox):
     """Normalizes all args in a path to a standard 24x24 viewbox."""
     # Each SVG lives in a 2D plane. The viewbox determines the region of that
     # plane that gets rendered. For instance, some designers may work with a
@@ -200,25 +202,15 @@ def normalize_based_on_viewbox(path, viewbox):
     new_path = []
     for command in path:
         if command[0] == 'a':
-            new_path.append([command[0]] +
-                            _normalize_args(command[1:3], norm) +
-                            command[3:6] +
-                            _normalize_args(command[6:], norm))
+            new_path.append([command[0]] + _normalize_args(command[1:3], norm)
+                            + command[3:6] + _normalize_args(command[6:], norm))
         elif command[0] == 'A':
-            new_path.append(
-                [command[0]] +
-                _normalize_args(command[1:3], norm) +
-                command[3:6] +
-                _normalize_args(command[6:], norm, add=(add_to_x, add_to_y)))
+            new_path.append([command[0]] + _normalize_args(command[1:3], norm)
+                            + command[3:6] + _normalize_args(command[6:], norm, add=(add_to_x, add_to_y)))
         elif command[0] == 'V':
-            new_path.append(
-                [command[0]] +
-                _normalize_args(command[1:], norm, add=(add_to_x, add_to_y),
-                                flip=True))
+            new_path.append([command[0]] + _normalize_args(command[1:], norm, add=(add_to_x, add_to_y), flip=True))
         elif command[0] == command[0].upper():
-            new_path.append(
-                [command[0]] +
-                _normalize_args(command[1:], norm, add=(add_to_x, add_to_y)))
+            new_path.append([command[0]] + _normalize_args(command[1:], norm, add=(add_to_x, add_to_y)))
         elif command[0] in 'zZ':
             new_path.append([command[0]])
         else:
@@ -262,7 +254,7 @@ def _update_curr_pos(curr_pos, cmd, start_of_path):
     return curr_pos, start_of_path
 
 
-def make_relative(cmds):
+def _make_relative(cmds):
     """Convert commands in a path to relative positioning."""
     curr_pos = (0.0, 0.0)
     start_of_path = (0.0, 0.0)
@@ -318,8 +310,8 @@ def _is_clockwise(subpath):
     """Returns whether the given subpath is clockwise-oriented."""
     pts = [cmd[-2:] for cmd in subpath]
     det = 0
-    for i in range(len(pts)-1):
-        det += np.linalg.det(pts[i:i+2])
+    for i in range(len(pts) - 1):
+        det += np.linalg.det(pts[i:i + 2])
     return det > 0
 
 
@@ -328,10 +320,10 @@ def _make_clockwise(subpath):
     new_path = [subpath[0]]
     other_cmds = list(reversed(subpath[1:]))
     for i, cmd in enumerate(other_cmds):
-        if i+1 == len(other_cmds):
+        if i + 1 == len(other_cmds):
             where_we_were = subpath[0][-2:]
         else:
-            where_we_were = other_cmds[i+1][-2:]
+            where_we_were = other_cmds[i + 1][-2:]
 
         if len(cmd) > 3:
             new_cmd = [cmd[0], cmd[3], cmd[4], cmd[1], cmd[2],
@@ -343,17 +335,16 @@ def _make_clockwise(subpath):
     return new_path
 
 
-def canonicalize(path):
+def _canonicalize(path):
     """Makes all paths start at top left, and go clockwise first."""
     # convert args to floats
     path = [[x[0]] + list(map(float, x[1:])) for x in path]
 
-    # canonicalize each subpath separately
+    # _canonicalize each subpath separately
     new_substructures = []
     for subpath in _separate_substructures(path):
         leftmost_point, leftmost_idx = _get_leftmost_point(subpath)
-        reordered = ([['M', leftmost_point[0], leftmost_point[1]]] +
-                     subpath[leftmost_idx+1:] + subpath[1:leftmost_idx+1])
+        reordered = ([['M', leftmost_point[0], leftmost_point[1]]] + subpath[leftmost_idx + 1:] + subpath[1:leftmost_idx + 1])
         new_substructures.append((reordered, leftmost_point))
 
     new_path = []
@@ -377,7 +368,7 @@ def canonicalize(path):
 
 
 # ######### UTILS FOR CONVERTING TOKENIZED PATHS TO VECTORS ###########
-def path_to_vector(path, categorical=False):
+def _path_to_vector(path, categorical=False):
     """Converts path's commands to a series of vectors."""
     # Notes:
     #   - The SimpleSVG dataset does not have any 't', 'q', 'Z', 'T', or 'Q'.
@@ -406,14 +397,14 @@ def path_to_vector(path, categorical=False):
     # indicates which command is being outputted (integer).
     new_path = []
     for cmd in path:
-        new_path.append(cmd_to_vector(cmd, categorical=categorical))
+        new_path.append(_cmd_to_vector(cmd, categorical=categorical))
     return new_path
 
 
-def cmd_to_vector(cmd_list, categorical=False):
+def _cmd_to_vector(cmd_list, categorical=False):
     """Converts the given command (given as a list) into a vector."""
     # For description of how this conversion happens, see
-    # path_to_vector docstring.
+    # _path_to_vector docstring.
     cmd = cmd_list[0]
     args = cmd_list[1:]
 
@@ -458,12 +449,12 @@ def cmd_to_vector(cmd_list, categorical=False):
     return command + arguments
 
 
-# ################ UTILS FOR RENDERING PATH INTO IMAGE #################
+################## UTILS FOR RENDERING PATH INTO IMAGE #################
 def _cubicbezier(x0, y0, x1, y1, x2, y2, x3, y3, n=40):
     """Return n points along cubiz bezier with given control points."""
     # from http://rosettacode.org/wiki/Bitmap/B%C3%A9zier_curves/Cubic
     pts = []
-    for i in range(n+1):
+    for i in range(n + 1):
         t = float(i) / float(n)
         a = (1. - t)**3
         b = 3. * t * (1. - t)**2
@@ -502,7 +493,10 @@ def _render_cubic(canvas, curr_pos, c_args, absolute, color):
     max_possible = len(canvas)
     x = [int(round(x_)) for x_ in x]
     y = [int(round(y_)) for y_ in y]
-    def within_range(x): return 0 <= x < max_possible
+
+    def within_range(x):
+        return 0 <= x < max_possible
+
     filtered = [(x_, y_) for x_, y_ in zip(x, y)
                 if within_range(x_) and within_range(y_)]
     if not filtered:
@@ -521,7 +515,10 @@ def _render_line(canvas, curr_pos, l_args, absolute, color):
                                int(end_point[0]), int(end_point[1]))
 
     max_possible = len(canvas)
-    def within_range(x): return 0 <= x < max_possible
+
+    def within_range(x):
+        return 0 <= x < max_possible
+
     filtered = [(x, y, v) for x, y, v in zip(rr, cc, val)
                 if within_range(x) and within_range(y)]
     if not filtered:
@@ -531,9 +528,10 @@ def _render_line(canvas, curr_pos, l_args, absolute, color):
     canvas[cc, rr, :] = val
 
 
-def per_step_render(path, absolute=False, color=constant_color):
+def _per_step_render(path, absolute=False, color=constant_color):
     """Render the icon's edges, given its path."""
-    def to_canvas_size(l): return [float(f) * (64./24.) for f in l]
+    def to_canvas_size(l):
+        return [float(f) * (64. / 24.) for f in l]
 
     canvas = np.zeros((64, 64, 3))
     curr_pos = (0.0, 0.0)
@@ -552,7 +550,7 @@ def per_step_render(path, absolute=False, color=constant_color):
     return canvas
 
 
-def zoom_out(path_list, add_baseline=0., per=22):
+def _zoom_out(path_list, add_baseline=0., per=22):
     """Makes glyph slightly smaller in viewbox, makes some descenders visible."""
     # assumes tensor is already unnormalized, and in long form
     new_path = []
@@ -561,7 +559,7 @@ def zoom_out(path_list, add_baseline=0., per=22):
         is_even = False
         for arg in command[1:]:
             if is_even:
-                args.append(str(float(arg) - ((24.-per) / 24.)*64./4.))
+                args.append(str(float(arg) - ((24. - per) / 24.) * 64. / 4.))
                 is_even = False
             else:
                 args.append(str(float(arg) - add_baseline))
@@ -570,8 +568,8 @@ def zoom_out(path_list, add_baseline=0., per=22):
     return new_path
 
 
-# #################### UTILS FOR PROCESSING VECTORS ################
-def append_eos(sample, categorical, feature_dim):
+##################### UTILS FOR PROCESSING VECTORS ################
+def _append_eos(sample, categorical, feature_dim):
     if not categorical:
         eos = -1 * np.ones(feature_dim)
     else:
@@ -581,7 +579,7 @@ def append_eos(sample, categorical, feature_dim):
     return sample
 
 
-def make_simple_cmds_long(out):
+def _make_simple_cmds_long(out):
     """Converts svg decoder output to format required by some render functions."""
     # out has 10 dims
     # the first 4 are respectively dims 0, 4, 5, 9 of the full 20-dim onehot vec
@@ -596,8 +594,8 @@ def make_simple_cmds_long(out):
                            out[..., 4:]], -1)
 
 
-# ################ UTILS FOR CONVERTING VECTORS TO SVGS ########################
-def vector_to_svg(vectors, stop_at_eos=False, categorical=False):
+################# UTILS FOR CONVERTING VECTORS TO SVGS ########################
+def _vector_to_svg(vectors, stop_at_eos=False, categorical=False):
     """Tranforms a given vector to an svg string."""
     new_path = []
     for vector in vectors:
@@ -612,13 +610,13 @@ def vector_to_svg(vectors, stop_at_eos=False, categorical=False):
 
             if is_eos:
                 break
-        new_path.append(' '.join(vector_to_cmd(vector, categorical=categorical)))
+        new_path.append(' '.join(_vector_to_cmd(vector, categorical=categorical)))
     new_path = ' '.join(new_path)
     return SVG_PREFIX_BIG + PATH_PREFIX_1 + new_path + PATH_POSFIX_1 + SVG_POSFIX
 
 
-def vector_to_cmd(vector, categorical=False, return_floats=False):
-    """Does the inverse transformation as cmd_to_vector()."""
+def _vector_to_cmd(vector, categorical=False, return_floats=False):
+    """Does the inverse transformation as _cmd_to_vector()."""
     cast_fn = float if return_floats else str
     if categorical:
         command = vector[:len(CMDS_LIST) + 1],
@@ -670,24 +668,149 @@ def vector_to_cmd(vector, categorical=False, return_floats=False):
     return cmd_list
 
 
-# ############# UTILS FOR CONVERTING SVGS/VECTORS TO IMAGES ###################
-def create_image_conversion_fn(max_outputs, categorical=False):
+############## UTILS FOR CONVERTING SVGS/VECTORS TO IMAGES ###################
+def _create_image_conversion_fn(max_outputs, categorical=False):
     """Binds the number of outputs to the image conversion fn (to svg or png)."""
     def convert_to_svg(decoder_output):
         converted = []
         for example in decoder_output:
             if len(converted) == max_outputs:
                 break
-            converted.append(vector_to_svg(example, True, categorical=categorical))
+            converted.append(_vector_to_svg(example, True, categorical=categorical))
         return np.array(converted)
 
     return convert_to_svg
 
 
-# ################## UTILS FOR CREATING TF SUMMARIES ##########################
+################### UTILS FOR CREATING TF SUMMARIES ##########################
 def _make_encoded_image(img_tensor):
     pil_img = Image.fromarray(np.squeeze(img_tensor * 255).astype(np.uint8), mode='L')
     buff = io.BytesIO()
     pil_img.save(buff, format='png')
     encoded_image = buff.getvalue()
     return encoded_image
+
+
+################### CHECK GLYPH/PATH VALID ##############################################
+def is_valid_glyph(g):
+    is_09 = 48 <= g['uni'] <= 57
+    is_capital_az = 65 <= g['uni'] <= 90
+    is_az = 97 <= g['uni'] <= 122
+    is_valid_dims = g['width'] != 0 and g['vwidth'] != 0
+    return (is_09 or is_capital_az or is_az) and is_valid_dims
+
+
+def is_valid_path(pathunibfp):
+    return pathunibfp[0] and len(pathunibfp[0]) <= 50
+
+
+################### DATASET PROCESSING #######################################
+def convert_to_path(g):
+    """Converts SplineSet in SFD font to str path."""
+    path = _sfd_to_path_list(g)
+    path = _add_missing_cmds(path, remove_zs=False)
+    path = _normalize_based_on_viewbox(path, '0 0 {} {}'.format(g['width'], g['vwidth']))
+    return path, g['uni'], g['binary_fp']
+
+
+def create_example(pathunibfp):
+    """Bulk of dataset processing. Converts str path to np array"""
+    path, uni, binary_fp = pathunibfp
+    final = {}
+
+    # zoom out
+    path = _zoom_out(path)
+    # make clockwise
+    path = _canonicalize(path)
+
+    # render path for training
+    final['rendered'] = _per_step_render(path, absolute=True)
+
+    # make path relative
+    path = _make_relative(path)
+    # convert to vector
+    vector = _path_to_vector(path, categorical=True)
+    # make simple vector
+    vector = np.array(vector)
+    vector = np.concatenate([np.take(vector, [0, 4, 5, 9], axis=-1), vector[..., -6:]], axis=-1)
+
+    # count some stats
+    final['seq_len'] = np.shape(vector)[0]
+    # final['class'] = int(_map_uni_to_alphanum(uni))
+    final['class'] = int(_map_uni_to_alpha(uni))
+    final['binary_fp'] = str(binary_fp)
+
+    # append eos
+    vector = _append_eos(vector.tolist(), True, 10)
+
+    # pad path to 51 (with eos)
+    final['sequence'] = np.concatenate((vector, np.zeros(((50 - final['seq_len']), 10))), 0)
+
+    # make pure list:
+    # use last channel only
+    final['rendered'] = np.reshape(final['rendered'][..., 0], [64 * 64]).astype(np.float32).tolist()
+    final['sequence'] = np.reshape(final['sequence'], [51 * 10]).astype(np.float32).tolist()
+    final['class'] = np.reshape(final['class'], [1]).astype(np.int64).tolist()
+    final['seq_len'] = np.reshape(final['seq_len'], [1]).astype(np.int64).tolist()
+    return final
+
+
+def mean_to_example(mean_stdev):
+    """Converts the found mean and stdev to example."""
+    # mean_stdev is a dict
+    mean_stdev['mean'] = np.reshape(mean_stdev['mean'], [10]).astype(np.float32).tolist()
+    mean_stdev['variance'] = np.reshape(mean_stdev['variance'], [10]).astype(np.float32).tolist()
+    mean_stdev['stddev'] = np.reshape(mean_stdev['stddev'], [10]).astype(np.float32).tolist()
+    mean_stdev['count'] = np.reshape(mean_stdev['count'], [1]).astype(np.int64).tolist()
+    return mean_stdev
+
+
+################### CHECK VALID ##############################################
+class MeanStddev:
+    """Apache Beam accumulator to compute the mean/stdev of svg commands."""
+
+    def create_accumulator(self):
+        curr_sum = np.zeros([10])
+        sum_sq = np.zeros([10])
+        return (curr_sum, sum_sq, 0)  # x, x^2, count
+
+    def add_input(self, sum_count, new_input):
+        (curr_sum, sum_sq, count) = sum_count
+        # new_input is a dict with keys = ['seq_len', 'sequence']
+        new_seq_len = new_input['seq_len']
+
+        # remove padding and eos from sequence
+        new_input = np.reshape(np.array(new_input['sequence']), [-1, 10])
+        new_input = new_input[:new_seq_len, :]
+
+        # accumulate new_sum and new_sum_sq
+        new_sum = np.sum([curr_sum, np.sum(new_input, axis=0)], axis=0)
+        new_sum_sq = np.sum([sum_sq, np.sum(np.power(new_input, 2), axis=0)],
+                            axis=0)
+        return new_sum, new_sum_sq, count + new_seq_len
+
+    def merge_accumulators(self, accumulators):
+        curr_sums, sum_sqs, counts = list(zip(*accumulators))
+        return np.sum(curr_sums, axis=0), np.sum(sum_sqs, axis=0), np.sum(counts)
+
+    def extract_output(self, sum_count):
+        (curr_sum, curr_sum_sq, count) = sum_count
+        if count:
+            mean = np.divide(curr_sum, count)
+            variance = np.divide(curr_sum_sq, count) - np.power(mean, 2)
+            # -ve value could happen due to rounding
+            variance = np.max([variance, np.zeros(np.shape(variance))], axis=0)
+            stddev = np.sqrt(variance)
+            return {
+                'mean': mean,
+                'variance': variance,
+                'stddev': stddev,
+                'count': count
+            }
+        else:
+            return {
+                'mean': float('NaN'),
+                'variance': float('NaN'),
+                'stddev': float('NaN'),
+                'count': 0
+            }
