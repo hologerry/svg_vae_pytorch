@@ -68,7 +68,7 @@ def create_db(opts):
         pickle.dump(cur_process_processed_font_glyphs, cur_process_pkl_file)
         cur_process_pkl_file.close()
 
-    processes = [mp.Process(target=process, args=(pid)) for pid in range(opts.process_nums + 1)]
+    processes = [mp.Process(target=process, args=(pid)) for pid in range(opts.num_processes + 1)]
 
     for p in processes:
         p.start()
