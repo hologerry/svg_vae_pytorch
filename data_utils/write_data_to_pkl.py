@@ -35,10 +35,8 @@ def create_db(opts):
             for char_id in range(char_num):
                 char_desp_f = open(os.path.join(cur_font_sfd_dir, '{}_{:02d}.txt'.format(font_id, char_id)), 'r')
                 char_desp = char_desp_f.readlines()
-                char_desp_f.close()
                 sfd_f = open(os.path.join(cur_font_sfd_dir, '{}_{:02d}.sfd'.format(font_id, char_id)), 'r')
                 sfd = sfd_f.read()
-                sfd_f.close()
 
                 uni = int(char_desp[0].strip())
                 width = int(char_desp[1].strip())
@@ -58,16 +56,22 @@ def create_db(opts):
                     msg = f"font {font_idx}, char {char_idx} is not a valid glyph\n"
                     cur_process_log_file.write(msg)
                     print(msg)
+                    char_desp_f.close()
+                    sfd_f.close()
                     # use the font whose all glyphs are valid
                     break
                 pathunibfp = svg_utils.convert_to_path(cur_glyph)
                 if not svg_utils.is_valid_path(pathunibfp):
                     msg = f"font {font_idx}, char {char_idx}'s sfd is not a valid path\n"
                     cur_process_log_file.write(msg)
+                    char_desp_f.close()
+                    sfd_f.close()
                     break
 
                 example = svg_utils.create_example(pathunibfp)
                 cur_font_glyphs.append(example)
+                char_desp_f.close()
+                sfd_f.close()
 
             cur_process_processed_font_glyphs += cur_font_glyphs
 
