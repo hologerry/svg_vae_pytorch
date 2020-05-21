@@ -15,7 +15,7 @@ def get_font_id_split_name(opts):
     alphabet_chars = opts.alphabet
     valid_fonts_urls = open(opts.downloaded_fonts_urls_file, 'r').readlines()
     font_id_split_name = open(opts.font_id_split_name_file, 'w')
-    fonts_file_path = opts.fonts_path
+    fonts_file_path = opts.ttf_path
 
     font_id = 0
     for font_line in valid_fonts_urls:
