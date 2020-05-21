@@ -95,12 +95,18 @@ def cal_mean_stddev(opts):
 def main():
     parser = argparse.ArgumentParser(description="LMDB creation")
     parser.add_argument('--sfd_path', type=str, default='svg_vae_data/sfd_font_glyphs_mp')
-    parser.add_argument("--output_path", type=str, default='svg_vae_data/glyph_lmdb_dataset',
+    parser.add_argument("--output_path", type=str, default='svg_vae_data/glyph_pkl_dataset',
                         help="Path to write the database to")
     parser.add_argument("--split", type=str, default='train')
     parser.add_argument("--log_dir", type=str, default='svg_vae_data/create_pkl_log/')
 
     opts = parser.parse_args()
+    assert os.path.exists(opts.sfd_path), "specified sfd glyphs path does not exist"
+    split_path = os.path.join(opts.output_path, opts.split)
+
+    if not os.path.exists(split_path):
+        os.makedirs(split_path)
+
     if not os.path.exists(opts.log_dir):
         os.makedirs(opts.log_dir)
     opts.num_processes = mp.cpu_count() - 1
