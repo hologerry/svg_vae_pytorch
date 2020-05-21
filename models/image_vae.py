@@ -1,8 +1,9 @@
 import torch
 from torch import nn
-from layers import ConvCINReLu, UpsamplingConv
-from torch.distributions.independent import Independent
 from torch.distributions.bernoulli import Bernoulli
+from torch.distributions.independent import Independent
+
+from models.layers import ConvCINReLu, UpsamplingConv
 
 
 class VisualEncoder(nn.Module):
