@@ -56,10 +56,6 @@ class SVGLSTMDecoder(nn.Module):
         return output, (hidden, cell)
 
 
-def lognormal(y, mean, logstd, logsqrttwopi):
-    return -0.5 * (y - mean) / torch.exp(logstd) ** 2 - logstd - logsqrttwopi
-
-
 class SVGMDNTop(nn.Module):
     """
     Apply the Mixture Nensity Network on the top of the LSTM ouput
