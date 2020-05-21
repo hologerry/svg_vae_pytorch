@@ -15,11 +15,13 @@ class SVGLSTMDecoder(nn.Module):
                  base_depth=32, bottleneck_bits=32, free_bits=0.15,
                  kl_beta=300, mode='train', sg_bottleneck=True, max_sequence_length=51,
                  hidden_size=1024, use_cls=True, dropout_p=0.5,
-                 twice_decoder=False, num_hidden_layers=4, feature_dim=10):
+                 twice_decoder=False, num_hidden_layers=4, feature_dim=10, ff_dropout=True):
         super().__init__()
+        self.mode = mode
         self.bottleneck_bits = bottleneck_bits
-        # self.num_categories = num_categories
+        self.num_categories = num_categories
         self.sg_bottleneck = sg_bottleneck
+        self.ff_dropout = ff_dropout
         self.num_hidden_layers = num_hidden_layers
         self.hidden_size = hidden_size
         if twice_decoder:
@@ -31,8 +33,8 @@ class SVGLSTMDecoder(nn.Module):
         self.input_dim = feature_dim + bottleneck_bits + num_categories
         self.pre_lstm_fc = nn.Linear(self.input_dim, self.hidden_size)
         self.pre_lstm_ac = nn.Tanh()
-
-        self.dropout = nn.Dropout(dropout_p)
+        if self.ff_dropout:
+            self.dropout = nn.Dropout(dropout_p)
         self.rnn = nn.LSTM(self.hidden_size, self.hidden_size, self.num_hidden_layers, dropout=dropout_p)
 
     def init_state_input(self, sampled_bottleneck):
@@ -48,10 +50,12 @@ class SVGLSTMDecoder(nn.Module):
         return (init_state_hidden, init_state_cell)
 
     def forward(self, inpt, sampled_bottleneck, clss, hidden, cell):
-        clss = F.one_hot(clss, num_categories).float().squeeze(1)
-        inpt = torch.cat([inpt, sampled_bottleneck, clss], dim=-1)
-        inpt = self.pre_lstm_ac(self.pre_lstm_fc(inpt)).unsqueeze(0)
-        inpt = self.dropout(inpt)
+        if self.mode == 'train':
+            clss = F.one_hot(clss, self.num_categories).to(device=inpt.device).float().squeeze(1)
+            inpt = torch.cat([inpt, sampled_bottleneck, clss], dim=-1)
+            inpt = self.pre_lstm_ac(self.pre_lstm_fc(inpt)).unsqueeze(0)
+        if self.ff_dropout:
+            inpt = self.dropout(inpt)
         output, (hidden, cell) = self.rnn(inpt, (hidden, cell))
         return output, (hidden, cell)
 
@@ -89,16 +93,18 @@ class SVGMDNTop(nn.Module):
         ret = self.fc(decoder_output)
         if self.hard or self.mode != 'train':
             # apply temperature, do softmax
-            command = self.iden(ret[..., :self.command_len]) / self.mix_temperature
-            command = torch.exp(command - torch.max(command, dim=-1, keepdim=True))
+            command = self.identity(ret[..., :self.command_len]) / self.mix_temperature
+            command_max = torch.max(command, dim=-1, keepdim=True)[0]
+            command = torch.exp(command - command_max)
             command = command / torch.sum(command, dim=-1, keepdim=True)
 
             # sample from the given probs, this is the same as get_pi_idx
             # and already returns not soft prob
-            # [seq_len, batch, 4]
+            # [seq_len, batch, command_len]
             command = Categorical(probs=command).sample()
             # [seq_len, batch]
-            command = F.one_hot(command, self.command_len)
+            command = F.one_hot(command, self.command_len).to(decoder_output.device).float()
+            # print(command.size())
 
             arguments = ret[..., self.command_len:]
             # args are [seq_len, batch, 6*3*num_mix], and get [seq_len*batch*6, 3*num_mix]
@@ -108,22 +114,25 @@ class SVGMDNTop(nn.Module):
 
             # apply temp to logmix
             out_logmix = self.identity(out_logmix) / self.mix_temperature
-            out_logmix = torch.exp(out_logmix - torch.max(out_logmix, dim=-1, keepdim=True))
+            out_logmix_max = torch.max(out_logmix, dim=-1, keepdim=True)[0]
+            out_logmix = torch.exp(out_logmix - out_logmix_max)
             out_logmix = out_logmix / torch.sum(out_logmix, dim=-1, keepdim=True)
             # get_pi_idx
             out_logmix = Categorical(probs=out_logmix).sample()
-            # [seq_len*batch*6]
-            out_logmix = out_logmix.long()
-            out_logmix = torch.cat([torch.arange(out_logmix.size(0)), out_logmix], dim=-1)
+            # [seq_len*batch*arg_len]
+            out_logmix = out_logmix.long().unsqueeze(1)
+            out_logmix = torch.cat([torch.arange(out_logmix.size(0), device=decoder_output.device).unsqueeze(1), out_logmix], dim=-1)
+            # [seq_len*batch*arg_len, 2]
+            chosen_mean = [out_mean[i[0], i[1]] for i in out_logmix]
+            chosen_logstd = [out_logstd[i[0], i[1]] for i in out_logmix]
+            chosen_mean = torch.tensor(chosen_mean, device=decoder_output.device)
+            chosen_logstd = torch.tensor(chosen_logstd, device=decoder_output.device)
 
-            chosen_mean = torch.gather(out_mean, 0, out_logmix)
-            chosen_logstd = torch.gather(out_logstd, 0, out_logmix)
-
-            rand_gaussian = (torch.randn(chosen_mean.size()) * torch.sqrt(self.gauss_temperature))
+            rand_gaussian = (torch.randn(chosen_mean.size(), device=decoder_output.device) * math.sqrt(self.gauss_temperature))
             arguments = chosen_mean + torch.exp(chosen_logstd) * rand_gaussian
 
             batch_size = command.size(1)
-            arguments = arguments.view(-1, batch_size, 6)
+            arguments = arguments.reshape(-1, batch_size, self.arg_len)  # [seg_len, batch, arg_len]
 
             # concat with the command we picked
             ret = torch.cat([command, arguments], dim=-1)
@@ -150,11 +159,13 @@ class SVGMDNTop(nn.Module):
         return -torch.mean(torch.sum(v, dim=2))
 
     def svg_loss(self, mdn_top_out, target):
-        """Compute """
+        """Compute loss for svg decoder model"""
+        assert self.mode == 'train', "Need compute loss in test mode"
         # target already in 10-dim mode, no need to mdn
         target_commands = target[..., :self.command_len]
         target_args = target[..., self.command_len:]
 
+        # in train mode the mdn_top_out has size [seq_len, batch, mdn_output_channel]
         predict_commands = mdn_top_out[..., :self.command_len]
         predict_args = mdn_top_out[..., self.command_len:]
         # [seq_len, batch, 6*3*num_mix]
@@ -192,11 +203,13 @@ if __name__ == "__main__":
     sg_bottleneck = True
     tearcher_force_ratio = 1.0
 
+    mode = 'test'
+
     image = torch.randn((batch_size, 1, 64, 64)).to(device)
     clss = torch.randint(low=0, high=num_categories, size=(batch_size, 1), dtype=torch.long).to(device)
 
-    image_vae = ImageVAE().to(device)
-    svg_decoder = SVGLSTMDecoder().to(device)
+    image_vae = ImageVAE(mode=mode).to(device)
+    svg_decoder = SVGLSTMDecoder(mode=mode).to(device)
     if sg_bottleneck:
         image_vae = image_vae.eval().to(device)
 
@@ -206,26 +219,31 @@ if __name__ == "__main__":
     trg_len = trg.size(0)
 
     outputs = torch.zeros(trg_len, batch_size, hidden_size).to(device)
-
-    inpt = trg[0, :, :]
-    print(inpt.size())
+    if mode == 'train':
+        inpt = trg[0, :, :]
+    else:
+        inpt = torch.zeros(1, batch_size, hidden_size).to(device)
+    # print(inpt.size())
 
     hidden, cell = svg_decoder.init_state_input(sampled_bottleneck)
 
     for t in range(1, trg_len):
         output, (hidden, cell) = svg_decoder(inpt, sampled_bottleneck, clss, hidden, cell)
         outputs[t] = output
-        teacher_force = random.random() < tearcher_force_ratio
+
         # print(output.size())
-        _, topi = output.topk(feature_dim)
-        inpt = trg[t] if teacher_force else topi.squeeze(0).detach().float()
+        teacher_force = random.random() < tearcher_force_ratio
+
+        inpt = trg[t] if (teacher_force and mode == 'train') else output.detach()
         # print(inpt.size())
 
-    print(outputs.size())
+    # print(outputs.size())
 
-    mdn_top_layer = SVGMDNTop()
+    mdn_top_layer = SVGMDNTop(mode=mode)
 
     top_output = mdn_top_layer(outputs)
+    # print(mode, top_output.size())
 
-    mdn_loss, softmax_xent_loss = mdn_top_layer.svg_loss(top_output, trg)
-    print(mdn_loss, softmax_xent_loss)
+    if mode == 'train':
+        mdn_loss, softmax_xent_loss = mdn_top_layer.svg_loss(top_output, trg)
+        # print(mdn_loss, softmax_xent_loss)

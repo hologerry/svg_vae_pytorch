@@ -48,6 +48,7 @@ def get_parser_svg_decoder():
     parser.add_argument('--mdn_k', type=int, default=1, help='')
     # LSTM
     parser.add_argument('--rec_dropout', type=int, default=0.3, help='LayerNormLSTMCelll, recurrent dropout')
+    parser.add_argument('--ff_dropout', type=bool, default=True, help='input dropout of LSTM')
     # Decode architecture
     parser.add_argument('--twice_decoder', type=bool, default=False, help='')
     parser.add_argument('--sg_bottleneck', type=bool, default=True,
