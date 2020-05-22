@@ -73,8 +73,9 @@ def create_db(opts):
                 cur_font_glyphs.append(example)
                 char_desp_f.close()
                 sfd_f.close()
-
-            cur_process_processed_font_glyphs += cur_font_glyphs
+            if len(cur_font_glyphs) == char_num:
+                # use the font whose all glyphs are valid
+                cur_process_processed_font_glyphs += cur_font_glyphs
 
         pickle.dump(cur_process_processed_font_glyphs, cur_process_pkl_file)
         cur_process_pkl_file.close()
