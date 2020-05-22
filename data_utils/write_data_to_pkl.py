@@ -96,12 +96,45 @@ def combine_perprocess_pkl_db(opts):
         cur_process_glyphs = pickle.load(cur_process_pkl_file)
         all_glyphs += cur_process_glyphs
     pickle.dump(all_glyphs, all_glyphs_pkl_file)
+    all_glyphs_pkl_file.close()
     return len(all_glyphs)
 
 
 def cal_mean_stddev(opts):
-    # TODO: calculate mean_stddev of the seqence length
-    pass
+    all_glyphs_f = open(os.path.join(opts.output_path, opts.split, f'{opts.split}_all.pkl'), 'rb')
+    all_glyphs = pickle.load(all_glyphs_f)
+    num_glyphs = len(all_glyphs)
+    glyphs_per_process = num_glyphs // opts.num_processes
+
+    manager = mp.Manager()
+    return_dict = manager.dict()
+    main_stddev_accum = svg_utils.MeanStddev()
+
+    def process(process_id, return_dict):
+        mean_stddev_accum = svg_utils.MeanStddev()
+        cur_sum_count = mean_stddev_accum.create_accumulator()
+        for i in range(process_id * glyphs_per_process, (process_id + 1) * glyphs_per_process):
+            if i >= num_glyphs:
+                break
+            cur_glyph = all_glyphs[i]
+            cur_glyph_input = {}
+            cur_glyph_input['seq_len'] = cur_glyph['seq_len']
+            cur_glyph_input['sequence'] = cur_glyph['sequence']
+            cur_sum_count = mean_stddev_accum.add_input(cur_sum_count, cur_glyph_input)
+
+        return_dict[process_id] = cur_sum_count
+    processes = [mp.Process(target=process, args=[pid, return_dict]) for pid in range(opts.num_processes + 1)]
+
+    for p in processes:
+        p.start()
+    for p in processes:
+        p.join()
+    merged_sum_count = main_stddev_accum.merge_accumulators(return_dict.values())
+    output = main_stddev_accum.extract_output(merged_sum_count)
+
+    save_mean_stddev = svg_utils.mean_to_example(output)
+    save_mean_stddev_f = open(os.path.join(opts.output_path, opts.split, f'{opts.split}_mean_stddev.pkl'), 'wb')
+    pickle.dump(save_mean_stddev, save_mean_stddev_f)
 
 
 def main():
@@ -111,6 +144,8 @@ def main():
                         help="Path to write the database to")
     parser.add_argument("--split", type=str, default='test')
     parser.add_argument("--log_dir", type=str, default='svg_vae_data/create_pkl_log/')
+    parser.add_argument("--phase", type=int, default=3, choices=[0, 1, 2, 3],
+                        help="0 all, 1 create db, 2 combine_pkl_files, 3 cal stddev")
 
     opts = parser.parse_args()
     assert os.path.exists(opts.sfd_path), "specified sfd glyphs path does not exist"
@@ -122,11 +157,13 @@ def main():
     if not os.path.exists(opts.log_dir):
         os.makedirs(opts.log_dir)
     opts.num_processes = mp.cpu_count() - 2
-
-    create_db(opts)
-
-    number_saved_glyphs = combine_perprocess_pkl_db(opts)
-    print(number_saved_glyphs)
+    if opts.phase <= 1:
+        create_db(opts)
+    if opts.phase <= 2:
+        number_saved_glyphs = combine_perprocess_pkl_db(opts)
+        print(number_saved_glyphs)
+    if opts.phase <= 3:
+        cal_mean_stddev(opts)
 
 
 if __name__ == "__main__":

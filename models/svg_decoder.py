@@ -42,7 +42,7 @@ class SVGLSTMDecoder(nn.Module):
         init_state_cell = []
         for i in range(self.num_hidden_layers):
             unbottleneck = self.unbotltenecks[i](sampled_bottleneck)
-            (h0, c0) = unbottleneck[:, :self.unbottleneck_dim//2], unbottleneck[:, self.unbottleneck_dim//2:]
+            (h0, c0) = unbottleneck[:, :self.unbottleneck_dim // 2], unbottleneck[:, self.unbottleneck_dim // 2:]
             init_state_hidden.append(h0.unsqueeze(0))
             init_state_cell.append(c0.unsqueeze(0))
         init_state_hidden = torch.cat(init_state_hidden, dim=0)
