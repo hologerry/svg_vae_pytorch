@@ -17,6 +17,7 @@ import data_utils.svg_utils as svg_utils
 
 
 def create_db(opts):
+    print("Process sfd to pkl files ....")
     all_font_ids = sorted(os.listdir(os.path.join(opts.sfd_path, opts.split)))
     num_fonts = len(all_font_ids)
     print(f"Number {opts.split} fonts", num_fonts)
@@ -56,7 +57,6 @@ def create_db(opts):
                 if not svg_utils.is_valid_glyph(cur_glyph):
                     msg = f"font {font_idx}, char {char_idx} is not a valid glyph\n"
                     cur_process_log_file.write(msg)
-                    print(msg)
                     char_desp_f.close()
                     sfd_f.close()
                     # use the font whose all glyphs are valid
@@ -87,8 +87,11 @@ def create_db(opts):
     for p in processes:
         p.join()
 
+    print("Finished processing all sfd files, logs (invalid glyphs and paths) are saved to", opts.log_dir)
+
 
 def combine_perprocess_pkl_db(opts):
+    print("Combine all pkl files ....")
     all_glyphs = []
     all_glyphs_pkl_file = open(os.path.join(opts.output_path, opts.split, f'{opts.split}_all.pkl'), 'wb')
     for process_id in range(opts.num_processes + 1):
@@ -101,6 +104,7 @@ def combine_perprocess_pkl_db(opts):
 
 
 def cal_mean_stddev(opts):
+    print("Calculate all glyphs' mean stddev ....")
     all_glyphs_f = open(os.path.join(opts.output_path, opts.split, f'{opts.split}_all.pkl'), 'rb')
     all_glyphs = pickle.load(all_glyphs_f)
     num_glyphs = len(all_glyphs)
