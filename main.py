@@ -48,7 +48,8 @@ def train_image_vae(opts):
         for idx, data in enumerate(train_loader):
             input_image = data['rendered'].to(device)
             target_image = input_image.detach().clone()
-            output, sampled_bottleneck, bottleneck_loss = model(input_image)
+            target_clss = data['class'].to(device)
+            output, sampled_bottleneck, bottleneck_loss = model(input_image, target_clss)
             output_image = output.mean
 
             b_loss = torch.mean(bottleneck_loss)
@@ -93,7 +94,8 @@ def train_image_vae(opts):
                             break
                         val_input_image = val_data['rendered'].to(device)
                         val_target_image = val_input_image.detach().clone()
-                        val_output, _, val_bottleneck_loss = model(val_input_image)
+                        val_target_clss = val_data['class'].to(device)
+                        val_output, _, val_bottleneck_loss = model(val_input_image, val_target_clss)
                         val_output_image = val_output.mean
 
                         val_b_loss = torch.mean(val_bottleneck_loss)
