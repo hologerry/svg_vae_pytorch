@@ -44,7 +44,7 @@ class Bottleneck(nn.Module):
         x_shape = list(x.size())
 
         if self.mode != 'train':
-            return mu, 0.0
+            return {'z': mu, 'b_loss': torch.tensor(0.0, device=x.device)}
 
         log_sigma = x[..., self.z_size:]
         epsilon = torch.randn(x_shape[:-1] + [self.z_size], device=x.device)
@@ -52,7 +52,11 @@ class Bottleneck(nn.Module):
         kl = 0.5 * torch.mean(torch.exp(log_sigma) + torch.pow(mu, 2) - 1.0 - log_sigma, dim=-1)
         zero = torch.zeros_like(kl)
         kl_loss = torch.mean(torch.max(kl - self.free_bits, zero))
-        return z, kl_loss * self.kl_beta
+        output = {}
+        output['z'] = z
+        output['b_loss'] = torch.mean(kl_loss * self.kl_beta)
+
+        return output
 
 
 class VisualDecoder(nn.Module):
@@ -95,17 +99,57 @@ class ImageVAE(nn.Module):
         self.bottleneck_bits = bottleneck_bits
         self.visual_encoder = VisualEncoder(input_channels, base_depth, bottleneck_bits, num_categories)
         self.bottleneck = Bottleneck(bottleneck_bits, free_bits, kl_beta, mode)
-        self.visual_decoder = VisualDecoder(base_depth, bottleneck_bits, output_channels, num_categories)
+        # self.visual_decoder = VisualDecoder(base_depth, bottleneck_bits, output_channels, num_categories)
+        # becuase multigpu output must be tensor or dict or tensor, decoder output is distribution
+        self.fc = nn.Linear(bottleneck_bits, 1024)
+        self.up1 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
+        self.up2 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
+        self.up3 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=5, stride=1, num_categories=num_categories)
+        self.up4 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=5, stride=2, num_categories=num_categories)
+        self.up5 = UpsamplingConv(2 * base_depth, base_depth, kernel_size=5, stride=1, num_categories=num_categories)
+        self.up6 = UpsamplingConv(base_depth, base_depth, kernel_size=5, stride=2, num_categories=num_categories)
+        self.up7 = UpsamplingConv(base_depth, base_depth, kernel_size=5, stride=1, num_categories=num_categories)
+        self.conv = nn.Conv2d(base_depth, output_channels, kernel_size=5, padding=2)
+
+        self.img_criterion = nn.MSELoss()
+
 
     def forward(self, inputs, clss):
         enc_out = self.visual_encoder(inputs, clss)
         enc_out = enc_out.view(-1, 2 * self.bottleneck_bits)
-        sampled_bottleneck, b_loss = self.bottleneck(enc_out)
-        dec_out = self.visual_decoder(sampled_bottleneck, clss)
+        b_output = self.bottleneck(enc_out)
+        sampled_bottleneck, b_loss = b_output['z'], b_output['b_loss']
+
+        dec_out = self.fc(sampled_bottleneck)
+        dec_out = dec_out.view([-1, 64, 4, 4])
+        dec_out = self.up1(dec_out, clss)
+        dec_out = self.up2(dec_out, clss)
+        dec_out = self.up3(dec_out, clss)
+        dec_out = self.up4(dec_out, clss)
+        dec_out = self.up5(dec_out, clss)
+        dec_out = self.up6(dec_out, clss)
+        dec_out = self.up7(dec_out, clss)
+        dec_out = self.conv(dec_out)
+        ber = Bernoulli(logits=dec_out)
+        dec_out = Independent(ber, reinterpreted_batch_ndims=3)
+        output_img = dec_out.mean
+
         output = {}
-        output['dec_out'] = dec_out
+        output['dec_out'] = output_img
         output['samp_b'] = sampled_bottleneck
-        output['b_loss'] = b_loss
+
+        if self.mode == 'train':
+            # calculating loss
+            output['b_loss'] = b_loss
+            rec_loss = -dec_out.log_prob(inputs)
+            elbo = torch.mean(-(b_loss + rec_loss))
+            rec_loss = torch.mean(rec_loss)
+            training_loss = -elbo
+            output['rec_loss'] = rec_loss
+            output['training_loss'] = training_loss
+            output['img_rec_loss'] = self.img_criterion(output_img, inputs)
+
+        # dec_out = self.visual_decoder(sampled_bottleneck, clss)
         return output
 
 
@@ -114,14 +158,11 @@ if __name__ == "__main__":
     image = torch.randn((2, 1, 64, 64)).to(device)
     clss = torch.ones((2, 1), dtype=torch.long).to(device)
 
-    image_vae = ImageVAE()
+    image_vae = ImageVAE().to(device)
     output = image_vae(image, clss)
-    dec_out, sampled_bottleneck, bottleneck_loss = output['dec_out'], output['samp_b'], output['b_loss']
-    bottleneck_kl = torch.mean(bottleneck_loss)
-    # calculating loss
-    rec_loss = -dec_out.log_prob(image)
-    elbo = torch.mean(-(bottleneck_loss + rec_loss))
-    rec_loss = torch.mean(rec_loss)
-    training_loss = -elbo
-    print(dec_out.mean, bottleneck_kl, rec_loss, training_loss)
-    # TODO: implement the def loss(self, logits, features)
+    dec_out = output['dec_out']
+    sampled_bottleneck = output['samp_b']
+    b_loss = output['b_loss']
+    rec_loss = output['rec_loss']
+    training_loss = output['training_loss']
+    print(dec_out.size(), sampled_bottleneck.size(), b_loss.size(), rec_loss.size(), training_loss.size())

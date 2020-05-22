@@ -1,6 +1,4 @@
-import datetime
 import os
-import time
 
 import torch
 import torch.nn as nn
@@ -40,39 +38,30 @@ def train_image_vae(opts):
 
     optimizer = Adam(model.parameters(), lr=opts.lr, betas=(opts.beta1, opts.beta2), eps=opts.eps, weight_decay=opts.weight_decay)
 
-    img_rec_criterion = nn.MSELoss().to(device)
-
-    prev_time = time.time()
-
-    for epoch in range(opts.n_epochs):
+    for epoch in range(opts.init_epoch, opts.n_epochs):
         for idx, data in enumerate(train_loader):
             input_image = data['rendered'].to(device)
             target_image = input_image.detach().clone()
             target_clss = data['class'].to(device)
             output = model(input_image, target_clss)
-            dec_output, sampled_bottleneck, bottleneck_loss = output['dec_out'], output['samp_b'], output['b_loss']
-            output_image = dec_output.mean
 
-            b_loss = torch.mean(bottleneck_loss)
-            rec_loss = -dec_output.log_prob(input_image)
-            elbo = torch.mean(-(bottleneck_loss + rec_loss))
-            rec_loss = torch.mean(rec_loss)
-            training_loss = -elbo
-            img_rec_loss = img_rec_criterion(output_image, target_image)
+            output_image = output['dec_out']
+            b_loss = output['b_loss'].mean()
+            rec_loss = output['rec_loss'].mean()
+            training_loss = output['training_loss'].mean()
+            img_rec_loss = output['img_rec_loss'].mean()
 
-            loss = b_loss + rec_loss + training_loss + img_rec_loss
+            # loss = b_loss + rec_loss + training_loss + img_rec_loss
+            loss = b_loss + img_rec_loss
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             batches_done = epoch * len(train_loader) + idx
-            batches_left = (opts.n_epochs - opts.init_epoch) * len(train_loader) - batches_done
-            time_left = datetime.timedelta(seconds=batches_left * (time.time() - prev_time))
-            prev_time = time.time()
 
             message = (
-                f"Epoch: {epoch}/{opts.n_epochs}, Batch: {idx}/{len(train_loader)}, ETA: {time_left}, "
+                f"Epoch: {epoch}/{opts.n_epochs}, Batch: {idx}/{len(train_loader)}, "
                 f"Loss: {loss.item():.6f}, "
                 f"b_loss: {b_loss.item():.6f}, "
                 f"rec_loss: {rec_loss.item():.6f}, "
@@ -97,17 +86,9 @@ def train_image_vae(opts):
                         val_target_image = val_input_image.detach().clone()
                         val_target_clss = val_data['class'].to(device)
                         val_output = model(val_input_image, val_target_clss)
-                        val_dec_output, _, val_bottleneck_loss = val_output['dec_out'], val_output['samp_b'], val_output['b_loss']
-                        val_output_image = val_dec_output.mean
 
-                        val_b_loss = torch.mean(val_bottleneck_loss)
-                        val_rec_loss = -val_dec_output.log_prob(val_input_image)
-                        val_elbo = torch.mean(-(val_bottleneck_loss + val_rec_loss))
-                        val_rec_loss = torch.mean(val_rec_loss)
-                        val_training_loss = -val_elbo
-                        val_img_rec_loss = img_rec_criterion(val_output_image, val_target_image)
-
-                        _ = val_b_loss + val_rec_loss + val_training_loss + val_img_rec_loss
+                        val_output_image = val_output['dec_out']
+                        val_img_rec_loss = val_output['img_rec_loss'].mean()
 
                         val_loss_value = val_img_rec_loss.item()
 
@@ -126,6 +107,9 @@ def train_image_vae(opts):
         if epoch % opts.ckpt_freq == 0:
             model_file = os.path.join(ckpt_dir, f"{opts.model_name}_{epoch}.pth")
             torch.save(model.module.state_dict(), model_file)
+
+    logfile.close()
+    val_logfile.close()
 
 
 def train_svg_decoder(opts):
@@ -158,10 +142,12 @@ def main():
 
     os.makedirs("experiments", exist_ok=True)
 
+    debug = True
+
     if opts.mode == 'train':
         # Create directories
         experiment_dir = os.path.join("experiments", opts.experiment_name)
-        os.makedirs(experiment_dir, exist_ok=False)  # False to prevent multiple train run by mistake
+        os.makedirs(experiment_dir, exist_ok=debug)  # False to prevent multiple train run by mistake
         os.makedirs(os.path.join(experiment_dir, "samples"), exist_ok=True)
         os.makedirs(os.path.join(experiment_dir, "checkpoints"), exist_ok=True)
         os.makedirs(os.path.join(experiment_dir, "results"), exist_ok=True)

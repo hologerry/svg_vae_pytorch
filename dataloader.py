@@ -9,7 +9,8 @@ class SVGDataset(data.Dataset):
     def __init__(self, root_path, max_seq_len=51, seq_feature_dim=10, mode='train'):
         super().__init__()
         self.mode = mode
-        self.pkl_path = os.path.join(root_path, self.mode, f'{mode}_all.pkl')
+        # self.pkl_path = os.path.join(root_path, self.mode, f'{mode}_all.pkl')
+        self.pkl_path = os.path.join(root_path, self.mode, f'{mode}_0000-0047.pkl')
         pkl_f = open(self.pkl_path, 'rb')
         print(f"Loading {self.pkl_path} pkl file ...")
         self.all_glyphs = pickle.load(pkl_f)
@@ -24,7 +25,7 @@ class SVGDataset(data.Dataset):
         item['class'] = torch.LongTensor(cur_glyph['class'])
         item['seq_len'] = torch.LongTensor(cur_glyph['seq_len'])
         item['sequence'] = torch.FloatTensor(cur_glyph['sequence']).view(self.max_seq_len, self.feature_dim)
-        item['rendered'] = torch.FloatTensor(cur_glyph['rendered']).view(1, 64, 64)
+        item['rendered'] = torch.FloatTensor(cur_glyph['rendered']).view(1, 64, 64) / 255.
         return item
 
     def __len__(self):
