@@ -49,11 +49,12 @@ def train_image_vae(opts):
             input_image = data['rendered'].to(device)
             target_image = input_image.detach().clone()
             target_clss = data['class'].to(device)
-            output, sampled_bottleneck, bottleneck_loss = model(input_image, target_clss)
-            output_image = output.mean
+            output = model(input_image, target_clss)
+            dec_output, sampled_bottleneck, bottleneck_loss = output['dec_out'], output['samp_b'], output['b_loss']
+            output_image = dec_output.mean
 
             b_loss = torch.mean(bottleneck_loss)
-            rec_loss = -output.log_prob(input_image)
+            rec_loss = -dec_output.log_prob(input_image)
             elbo = torch.mean(-(bottleneck_loss + rec_loss))
             rec_loss = torch.mean(rec_loss)
             training_loss = -elbo
@@ -95,11 +96,12 @@ def train_image_vae(opts):
                         val_input_image = val_data['rendered'].to(device)
                         val_target_image = val_input_image.detach().clone()
                         val_target_clss = val_data['class'].to(device)
-                        val_output, _, val_bottleneck_loss = model(val_input_image, val_target_clss)
-                        val_output_image = val_output.mean
+                        val_output = model(val_input_image, val_target_clss)
+                        val_dec_output, _, val_bottleneck_loss = val_output['dec_out'], val_output['samp_b'], val_output['b_loss']
+                        val_output_image = val_dec_output.mean
 
                         val_b_loss = torch.mean(val_bottleneck_loss)
-                        val_rec_loss = -output.log_prob(val_input_image)
+                        val_rec_loss = -val_dec_output.log_prob(val_input_image)
                         val_elbo = torch.mean(-(val_bottleneck_loss + val_rec_loss))
                         val_rec_loss = torch.mean(val_rec_loss)
                         val_training_loss = -val_elbo
