@@ -33,7 +33,7 @@ class SVGDataset(data.Dataset):
 
 def get_loader(root_path, max_seq_len, seq_feature_dim, batch_size, mode='train'):
     dataset = SVGDataset(root_path, max_seq_len, seq_feature_dim, mode)
-    dataloader = data.DataLoader(dataset, batch_size, shuffle=(mode == 'train'))
+    dataloader = data.DataLoader(dataset, batch_size, shuffle=(mode == 'train'), num_workers=batch_size)
 
     return dataloader
 
