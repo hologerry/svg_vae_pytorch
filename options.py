@@ -5,8 +5,8 @@ import argparse
 def get_parser_basic():
     parser = argparse.ArgumentParser()
     # TODO: basic parameters training related
-    parser.add_argument('--mode', type=str, default='image_vae', choices=['image_vae', 'svg_decoder'],
-                        help='current model')
+    parser.add_argument('--model_name', type=str, default='image_vae', choices=['image_vae', 'svg_decoder'],
+                        help='current model_name')
     parser.add_argument('--initializer', type=str, default='uniform_unit_scaling',
                         choices=['uniform', 'orthogonal', 'uniform_unit_scaling'],
                         help='image vae initializer type')
@@ -22,6 +22,7 @@ def get_parser_basic():
     parser.add_argument('--seq_feature_dim', type=int, default=10,
                         help='feature dim (like vocab size) of one step of sequence feature')
     # experiment related
+    parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])
     parser.add_argument('--multi_gpu', type=bool, default=True)
     parser.add_argument('--experiment_name', type=int, default='experiment')
     parser.add_argument('--data_root', type=str, default='svg_vae_data/glyph_pkl_dataset')
@@ -44,7 +45,7 @@ def get_parser_image_vae():
     parser.add_argument('--batch_size', type=int, default=64, help='image vae batch_size')
     parser.add_argument('--init_epoch', type=int, default=20, help='init epoch')
     parser.add_argument('--n_epochs', type=int, default=20, help='number of epochs')
-    # model
+    # model_name
     parser.add_argument('--hidden_size', type=int, default=32, help='image vae hidden_size, not used')
     parser.add_argument('--base_depth', type=int, default=32, help='image vae conv layer base depth')
     parser.add_argument('--in_channel', type=int, default=1, help='input image channel')

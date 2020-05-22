@@ -120,7 +120,7 @@ def train_image_vae(opts):
                     print(val_msg)
 
         if epoch % opts.ckpt_freq == 0:
-            model_file = os.path.join(ckpt_dir, f"{opts.model}_{epoch}.pth")
+            model_file = os.path.join(ckpt_dir, f"{opts.model_name}_{epoch}.pth")
             torch.save(model.module.state_dict(), model_file)
 
 
@@ -129,9 +129,9 @@ def train_svg_decoder(opts):
 
 
 def train(opts):
-    if opts.model == 'image_vae':
+    if opts.model_name == 'image_vae':
         train_image_vae(opts)
-    elif opts.model == 'svg_decoder':
+    elif opts.model_name == 'svg_decoder':
         train_svg_decoder(opts)
     else:
         raise NotImplementedError
@@ -143,9 +143,9 @@ def test(opts):
 
 def main():
     basic_opts = get_parser_basic().parse_args()
-    if basic_opts.model == 'image_vae':
+    if basic_opts.model_name == 'image_vae':
         opts = get_parser_image_vae().parse_args()
-    elif basic_opts.model == 'svg_decoder':
+    elif basic_opts.model_name == 'svg_decoder':
         opts = get_parser_svg_decoder().parse_args()
     else:
         raise NotImplementedError
