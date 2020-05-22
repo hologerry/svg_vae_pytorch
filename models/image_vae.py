@@ -12,10 +12,10 @@ class VisualEncoder(nn.Module):
         self.bottleneck_bits = bottleneck_bits
         self.down1 = ConvCINReLu(inch=input_channels, outch=base_depth, kernel_size=5, stride=1, num_categories=num_categories)
         self.down2 = ConvCINReLu(inch=base_depth, outch=base_depth, kernel_size=5, stride=2, num_categories=num_categories)
-        self.down3 = ConvCINReLu(inch=base_depth, outch=2*base_depth, kernel_size=5, stride=1, num_categories=num_categories)
-        self.down4 = ConvCINReLu(inch=2*base_depth, outch=2*base_depth, kernel_size=5, stride=2, num_categories=num_categories)
-        self.down5 = ConvCINReLu(inch=2*base_depth, outch=2*base_depth, kernel_size=4, stride=2, num_categories=num_categories)
-        self.down6 = ConvCINReLu(inch=2*base_depth, outch=2*base_depth, kernel_size=4, stride=2, num_categories=num_categories)
+        self.down3 = ConvCINReLu(inch=base_depth, outch=2 * base_depth, kernel_size=5, stride=1, num_categories=num_categories)
+        self.down4 = ConvCINReLu(inch=2 * base_depth, outch=2 * base_depth, kernel_size=5, stride=2, num_categories=num_categories)
+        self.down5 = ConvCINReLu(inch=2 * base_depth, outch=2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
+        self.down6 = ConvCINReLu(inch=2 * base_depth, outch=2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
         self.flatten = nn.Flatten()
         self.fc = nn.Linear(1024, 2 * bottleneck_bits, bias=True)
 
@@ -60,11 +60,11 @@ class VisualDecoder(nn.Module):
         super(VisualDecoder, self).__init__()
         self.fc = nn.Linear(bottleneck_bits, 1024)
 
-        self.up1 = UpsamplingConv(2*base_depth, 2*base_depth, kernel_size=4, stride=2, num_categories=num_categories)
-        self.up2 = UpsamplingConv(2*base_depth, 2*base_depth, kernel_size=4, stride=2, num_categories=num_categories)
-        self.up3 = UpsamplingConv(2*base_depth, 2*base_depth, kernel_size=5, stride=1, num_categories=num_categories)
-        self.up4 = UpsamplingConv(2*base_depth, 2*base_depth, kernel_size=5, stride=2, num_categories=num_categories)
-        self.up5 = UpsamplingConv(2*base_depth, base_depth, kernel_size=5, stride=1, num_categories=num_categories)
+        self.up1 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
+        self.up2 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
+        self.up3 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=5, stride=1, num_categories=num_categories)
+        self.up4 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=5, stride=2, num_categories=num_categories)
+        self.up5 = UpsamplingConv(2 * base_depth, base_depth, kernel_size=5, stride=1, num_categories=num_categories)
         self.up6 = UpsamplingConv(base_depth, base_depth, kernel_size=5, stride=2, num_categories=num_categories)
         self.up7 = UpsamplingConv(base_depth, base_depth, kernel_size=5, stride=1, num_categories=num_categories)
 
@@ -102,7 +102,7 @@ class ImageVAE(nn.Module):
         enc_out = enc_out.view(-1, 2 * self.bottleneck_bits)
         sampled_bottleneck, b_loss = self.bottleneck(enc_out)
         dec_out = self.visual_decoder(sampled_bottleneck, clss)
-        return sampled_bottleneck, dec_out, b_loss
+        return dec_out, sampled_bottleneck, b_loss
 
 
 if __name__ == "__main__":
@@ -111,7 +111,7 @@ if __name__ == "__main__":
     clss = torch.ones((2, 1), dtype=torch.long).to(device)
 
     image_vae = ImageVAE()
-    sampled_bottleneck, output, bottleneck_loss = image_vae(image, clss)
+    output, sampled_bottleneck, bottleneck_loss = image_vae(image, clss)
     bottleneck_kl = torch.mean(bottleneck_loss)
     # calculating loss
     rec_loss = -output.log_prob(image)

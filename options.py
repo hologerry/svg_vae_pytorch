@@ -5,27 +5,50 @@ import argparse
 def get_parser_basic():
     parser = argparse.ArgumentParser()
     # TODO: basic parameters training related
+    parser.add_argument('--mode', type=str, default='image_vae', choices=['image_vae', 'svg_decoder'],
+                        help='current model')
     parser.add_argument('--initializer', type=str, default='uniform_unit_scaling',
                         choices=['uniform', 'orthogonal', 'uniform_unit_scaling'],
                         help='image vae initializer type')
     parser.add_argument('--initializer_gain', type=float, default=1.0, help='image vae initializer initializer gain')
-    parser.add_argument('--weight_decay', type=float, default=0.0, help='image vae weight decay')
     parser.add_argument('--bottleneck_bits', type=int, default=32, help='image vae number of bottleneck bits')
     parser.add_argument('--kl_beta', type=int, default=300, help='image vae kl loss beta')
     parser.add_argument('--free_bits_div', type=int, default=4, help='image vae free bits div, not used')
     parser.add_argument('--free_bits', type=float, default=0.15, help='image vae free bits')
-
     parser.add_argument('--num_categories', type=int, default=52, help='number of glyphs, original is 62')
 
+    # data related
+    parser.add_argument('--max_seq_len', type=int, default=51, help='maximum length of sequence')
+    parser.add_argument('--seq_feature_dim', type=int, default=10,
+                        help='feature dim (like vocab size) of one step of sequence feature')
+    # experiment related
+    parser.add_argument('--multi_gpu', type=bool, default=True)
+    parser.add_argument('--experiment_name', type=int, default='experiment')
+    parser.add_argument('--data_root', type=str, default='svg_vae_data/glyph_pkl_dataset')
+    parser.add_argument('--ckpt_freq', type=int, default=2, help='save checkpoint frequency of epoch')
+    parser.add_argument('--sample_freq', type=int, default=400, help='sample train output of steps')
+    parser.add_argument('--val_freq', type=int, default=800, help='sample validate output of steps')
+    parser.add_argument('--beta1', type=float, default=0.85, help='beta1 of Adam optimizer')
+    parser.add_argument('--beta2', type=float, default=0.997, help='beta2 of Adam optimizer')
+    parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
+    parser.add_argument('--eps', type=float, default=1e-6, help='Adam epsilon')
+    parser.add_argument('--weight_decay', type=float, default=0.0, help='image vae weight decay')
+
+    # TODO: weight decay
     return parser
 
 
 def get_parser_image_vae():
     parser = get_parser_basic()
+    # experiment
     parser.add_argument('--batch_size', type=int, default=64, help='image vae batch_size')
+    parser.add_argument('--init_epoch', type=int, default=20, help='init epoch')
+    parser.add_argument('--n_epochs', type=int, default=20, help='number of epochs')
+    # model
     parser.add_argument('--hidden_size', type=int, default=32, help='image vae hidden_size, not used')
     parser.add_argument('--base_depth', type=int, default=32, help='image vae conv layer base depth')
-
+    parser.add_argument('--in_channel', type=int, default=1, help='input image channel')
+    parser.add_argument('--out_channel', type=int, default=1, help='output image channel')
     # problem related not clear
     parser.add_argument('--absolute', type=bool, default=False, help='')
     parser.add_argument('--just_render', type=bool, default=True, help='')
@@ -37,6 +60,8 @@ def get_parser_image_vae():
 def get_parser_svg_decoder():
     parser = get_parser_basic()
     parser.add_argument('--batch_size', type=int, defautl=128, help='svg decoder batch size')
+    parser.add_argument('--init_epoch', type=int, default=20, help='init epoch')
+    parser.add_argument('--n_epochs', type=int, default=40, help='number of epochs')
     parser.add_argument('--hidden_size', type=int, default=1024, help='svg decoder hidden size')
     parser.add_argument('--num_hidden_layers', type=int, default=4, help='svg decoder number of hidden layers')
     parser.add_argument('--force_full_predict', type=bool, default=True, help='')
@@ -63,7 +88,6 @@ def get_parser_svg_decoder():
     # VAE hparameters (to load image encoder)
     parser.add_argument('--vae_ckpt_dir', type=str, default='')
     parser.add_argument('--vae_data_dir', type=str, default='')
-
     # problem related not clear
     parser.add_argument('--absolute', type=bool, default=False, help='')
     parser.add_argument('--just_render', type=bool, default=False, help='')

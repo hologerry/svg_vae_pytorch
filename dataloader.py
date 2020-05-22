@@ -53,3 +53,4 @@ if __name__ == '__main__':
         print('seq_len', batch['seq_len'].size())
         print('sequence', batch['sequence'].size())
         print('rendered', batch['rendered'].size())
+        print(torch.max(batch['rendered']))
