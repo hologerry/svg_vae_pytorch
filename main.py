@@ -83,7 +83,7 @@ def train_image_vae(opts):
 
             if opts.sample_freq > 0 and batches_done % opts.sample_freq == 0:
                 img_sample = torch.cat((input_image.data, output_image.data, target_image.data), -2)
-                save_file = os.path.join(sample_dir, 'train', f"train_epoch_{epoch}_batch_{batches_done}.png")
+                save_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}.png")
                 save_image(img_sample, save_file, nrow=8, normalize=True)
 
             if opts.val_freq > 0 and batches_done % opts.val_freq == 0:
@@ -110,7 +110,7 @@ def train_image_vae(opts):
                         val_loss_value = val_img_rec_loss.item()
 
                         val_img_sample = torch.cat((val_input_image.data, val_output_image.data, val_target_image.data), -2)
-                        val_save_file = os.path.join(sample_dir, 'val', f"val_epoch_{epoch}_batch_{batches_done}.png")
+                        val_save_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}.png")
                         save_image(val_img_sample, val_save_file, nrow=8, normalize=True)
 
                     val_loss_value /= 20
