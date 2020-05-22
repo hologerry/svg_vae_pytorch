@@ -767,7 +767,7 @@ def mean_to_example(mean_stdev):
 
 ################### CHECK VALID ##############################################
 class MeanStddev:
-    """Apache Beam accumulator to compute the mean/stdev of svg commands."""
+    """Accumulator to compute the mean/stdev of svg commands."""
 
     def create_accumulator(self):
         curr_sum = np.zeros([10])
