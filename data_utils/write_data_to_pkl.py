@@ -88,7 +88,7 @@ def create_db(opts):
 
 def combine_perprocess_pkl_db(opts):
     all_glyphs = []
-    all_glyphs_pkl_file = open(os.path.join(opts.output_path, opts.split, f'all.pkl'), 'wb')
+    all_glyphs_pkl_file = open(os.path.join(opts.output_path, opts.split, f'{opts.split}_all.pkl'), 'wb')
     for process_id in range(opts.num_processes + 1):
         cur_process_pkl_file = open(os.path.join(opts.output_path, opts.split, f'{opts.split}_{process_id:04d}-{opts.num_processes+1:04d}.pkl'), 'rb')
         cur_process_glyphs = pickle.load(cur_process_pkl_file)
