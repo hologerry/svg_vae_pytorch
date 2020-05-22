@@ -152,7 +152,7 @@ def main():
 
     os.makedirs("experiments", exist_ok=True)
 
-    if opts.phase == 'train':
+    if opts.mode == 'train':
         # Create directories
         experiment_dir = os.path.join("experiments", opts.experiment_name)
         os.makedirs(experiment_dir, exist_ok=False)  # False to prevent multiple train run by mistake
@@ -167,7 +167,7 @@ def main():
             for key, value in vars(opts).items():
                 f.write(str(key) + ": " + str(value) + "\n")
         train(opts)
-    elif opts.phase == 'test':
+    elif opts.mode == 'test':
         print(f"Testing on experiment {opts.experiment_name}...")
         test(opts)
     else:
