@@ -19,12 +19,13 @@ import data_utils.svg_utils as svg_utils
 def create_db(opts):
     all_font_ids = sorted(os.listdir(os.path.join(opts.sfd_path, opts.split)))
     num_fonts = len(all_font_ids)
+    print(f"Number {opts.split} fonts", num_fonts)
     fonts_per_process = num_fonts // opts.num_processes
     char_num = 52
 
     def process(process_id):
         cur_process_processed_font_glyphs = []
-        cur_process_log_file = open(os.path.join(opts.log_dir, f'log_{process_id}.txt'), 'w')
+        cur_process_log_file = open(os.path.join(opts.log_dir, f'{opts.split}_log_{process_id}.txt'), 'w')
         cur_process_pkl_file = open(os.path.join(opts.output_path, opts.split, f'{opts.split}_{process_id:04d}-{opts.num_processes+1:04d}.pkl'), 'wb')
         for i in range(process_id * fonts_per_process, (process_id + 1) * fonts_per_process):
             if i >= num_fonts:
@@ -107,7 +108,7 @@ def main():
     parser.add_argument('--sfd_path', type=str, default='svg_vae_data/sfd_font_glyphs_mp')
     parser.add_argument("--output_path", type=str, default='svg_vae_data/glyph_pkl_dataset',
                         help="Path to write the database to")
-    parser.add_argument("--split", type=str, default='train')
+    parser.add_argument("--split", type=str, default='test')
     parser.add_argument("--log_dir", type=str, default='svg_vae_data/create_pkl_log/')
 
     opts = parser.parse_args()
