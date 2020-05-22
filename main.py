@@ -150,6 +150,8 @@ def main():
     else:
         raise NotImplementedError
 
+    opts.experiment_name = opts.experiment_name + '_' + opts.model_name
+
     os.makedirs("experiments", exist_ok=True)
 
     if opts.mode == 'train':
