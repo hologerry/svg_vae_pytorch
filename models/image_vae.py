@@ -102,7 +102,11 @@ class ImageVAE(nn.Module):
         enc_out = enc_out.view(-1, 2 * self.bottleneck_bits)
         sampled_bottleneck, b_loss = self.bottleneck(enc_out)
         dec_out = self.visual_decoder(sampled_bottleneck, clss)
-        return dec_out, sampled_bottleneck, b_loss
+        output = {}
+        output['dec_out'] = dec_out
+        output['samp_b'] = sampled_bottleneck
+        output['b_loss'] = b_loss
+        return output
 
 
 if __name__ == "__main__":
@@ -111,12 +115,13 @@ if __name__ == "__main__":
     clss = torch.ones((2, 1), dtype=torch.long).to(device)
 
     image_vae = ImageVAE()
-    output, sampled_bottleneck, bottleneck_loss = image_vae(image, clss)
+    output = image_vae(image, clss)
+    dec_out, sampled_bottleneck, bottleneck_loss = output['dec_out'], output['samp_b'], output['b_loss']
     bottleneck_kl = torch.mean(bottleneck_loss)
     # calculating loss
-    rec_loss = -output.log_prob(image)
+    rec_loss = -dec_out.log_prob(image)
     elbo = torch.mean(-(bottleneck_loss + rec_loss))
     rec_loss = torch.mean(rec_loss)
     training_loss = -elbo
-    print(output.mean, bottleneck_kl, rec_loss, training_loss)
+    print(dec_out.mean, bottleneck_kl, rec_loss, training_loss)
     # TODO: implement the def loss(self, logits, features)
