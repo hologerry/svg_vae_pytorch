@@ -777,7 +777,7 @@ class MeanStddev:
     def add_input(self, sum_count, new_input):
         (curr_sum, sum_sq, count) = sum_count
         # new_input is a dict with keys = ['seq_len', 'sequence']
-        new_seq_len = new_input['seq_len']
+        new_seq_len = new_input['seq_len'][0]  # Line #754 'seq_len' is a list of one int
         assert isinstance(new_seq_len, int), print(type(new_seq_len))
 
         # remove padding and eos from sequence
