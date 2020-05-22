@@ -47,7 +47,7 @@ class Bottleneck(nn.Module):
             return mu, 0.0
 
         log_sigma = x[..., self.z_size:]
-        epsilon = torch.randn(x_shape[:-1] + [self.z_size])
+        epsilon = torch.randn(x_shape[:-1] + [self.z_size], device=x.device)
         z = mu + torch.exp(log_sigma / 2) * epsilon
         kl = 0.5 * torch.mean(torch.exp(log_sigma) + torch.pow(mu, 2) - 1.0 - log_sigma, dim=-1)
         zero = torch.zeros_like(kl)
