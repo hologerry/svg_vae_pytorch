@@ -778,14 +778,18 @@ class MeanStddev:
         (curr_sum, sum_sq, count) = sum_count
         # new_input is a dict with keys = ['seq_len', 'sequence']
         new_seq_len = new_input['seq_len']
+        assert isinstance(new_seq_len, int)
 
         # remove padding and eos from sequence
-        new_input = np.reshape(np.array(new_input['sequence']), [-1, 10])
-        new_input = new_input[:new_seq_len, :]
+        assert isinstance(new_input['sequence'], list), print(type(new_input['sequence']))
+        new_input_np = np.reshape(np.array(new_input['sequence']), [-1, 10])
+        assert isinstance(new_input_np, np.ndarray), print(type())
+        assert new_input_np.shape[0] >= new_seq_len
+        new_input_np = new_input_np[:new_seq_len, :]
 
         # accumulate new_sum and new_sum_sq
-        new_sum = np.sum([curr_sum, np.sum(new_input, axis=0)], axis=0)
-        new_sum_sq = np.sum([sum_sq, np.sum(np.power(new_input, 2), axis=0)],
+        new_sum = np.sum([curr_sum, np.sum(new_input_np, axis=0)], axis=0)
+        new_sum_sq = np.sum([sum_sq, np.sum(np.power(new_input_np, 2), axis=0)],
                             axis=0)
         return new_sum, new_sum_sq, count + new_seq_len
 
