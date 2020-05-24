@@ -25,8 +25,8 @@ class SVGDataset(data.Dataset):
         item['class'] = torch.LongTensor(cur_glyph['class'])
         item['seq_len'] = torch.LongTensor(cur_glyph['seq_len'])
         item['sequence'] = torch.FloatTensor(cur_glyph['sequence']).view(self.max_seq_len, self.feature_dim)
-        item['rendered'] = torch.FloatTensor(cur_glyph['rendered']).view(1, 64, 64) / 255.
-        # item['rendered'] = 1.0 - torch.FloatTensor(cur_glyph['rendered']).view(1, 64, 64) / 255.
+        # item['rendered'] = torch.FloatTensor(cur_glyph['rendered']).view(1, 64, 64) / 255.
+        item['rendered'] = 1.0 - torch.FloatTensor(cur_glyph['rendered']).view(1, 64, 64) / 255.
         # [0., 1.]
         return item
 

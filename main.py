@@ -71,7 +71,7 @@ def train_image_vae(opts):
                 f"Epoch: {epoch}/{opts.n_epochs}, Batch: {idx}/{len(train_loader)}, "
                 f"Loss: {loss.item():.6f}, "
                 f"b_loss: {b_loss.item():.6f}, "
-                f"rec_loss: {rec_loss.item():.6f}, "
+                f"rec_loss: {rec_loss.item():.6f}"
                 # f"training_loss: {training_loss.item():.6f}, "
                 # f"img_rec_loss: {img_rec_loss.item():.6f}"
             )

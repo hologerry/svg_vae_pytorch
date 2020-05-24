@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+# import torch.nn.functional as F
 
 # from torch.distributions.bernoulli import Bernoulli
 # from torch.distributions.independent import Independent
@@ -50,7 +50,6 @@ class Bottleneck(nn.Module):
 
         log_sigma = x[..., self.z_size:]
         epsilon = torch.randn(x_shape[:-1] + [self.z_size], device=x.device)
-        print(epsilon.size())
         z = mu + torch.exp(log_sigma / 2) * epsilon
         kl = 0.5 * torch.mean(torch.exp(log_sigma) + mu ** 2 - 1.0 - log_sigma, dim=-1)
         zero = torch.zeros_like(kl)
@@ -115,6 +114,7 @@ class ImageVAE(nn.Module):
         self.conv = nn.Conv2d(base_depth, output_channels, kernel_size=5, padding=2)  # 64
 
         self.sigmoid = nn.Sigmoid()
+        self.rec_criterion = nn.BCELoss()
 
     def forward(self, inputs, clss):
         enc_out = self.visual_encoder(inputs, clss)
@@ -150,7 +150,7 @@ class ImageVAE(nn.Module):
             # training_loss = -elbo
             # output['rec_loss'] = rec_loss
             # output['training_loss'] = training_loss
-            output['rec_loss'] = F.binary_cross_entropy_with_logits(dec_out, inputs, weight=inputs)
+            output['rec_loss'] = self.rec_criterion(dec_out, inputs)
 
         # dec_out = self.visual_decoder(sampled_bottleneck, clss)
         return output
