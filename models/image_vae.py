@@ -33,32 +33,32 @@ class VisualEncoder(nn.Module):
         return out
 
 
-class Bottleneck(nn.Module):
-    def __init__(self, bottleneck_bits, free_bits, kl_beta, mode='Train'):
-        super(Bottleneck, self).__init__()
-        self.z_size = bottleneck_bits
-        self.free_bits = free_bits
-        self.kl_beta = kl_beta
-        self.mode = mode
+# class Bottleneck(nn.Module):
+#     def __init__(self, bottleneck_bits, free_bits, kl_beta, mode='Train'):
+#         super(Bottleneck, self).__init__()
+#         self.z_size = bottleneck_bits
+#         self.free_bits = free_bits
+#         self.kl_beta = kl_beta
+#         self.mode = mode
 
-    def forward(self, x):
-        mu = x[..., :self.z_size]
-        x_shape = list(x.size())
+#     def forward(self, x):
+#         mu = x[..., :self.z_size]
+#         x_shape = list(x.size())
 
-        if self.mode != 'train':
-            return {'z': mu, 'b_loss': torch.tensor(0.0, device=x.device)}
+#         if self.mode != 'train':
+#             return {'z': mu, 'b_loss': torch.tensor(0.0, device=x.device)}
 
-        log_sigma = x[..., self.z_size:]
-        epsilon = torch.randn(x_shape[:-1] + [self.z_size], device=x.device)
-        z = mu + torch.exp(log_sigma / 2) * epsilon
-        kl = 0.5 * torch.mean(torch.exp(log_sigma) + mu ** 2 - 1.0 - log_sigma, dim=-1)
-        zero = torch.zeros_like(kl)
-        kl_loss = torch.mean(torch.max(kl - self.free_bits, zero))
-        output = {}
-        output['z'] = z
-        output['b_loss'] = torch.mean(kl_loss * self.kl_beta)
+#         log_sigma = x[..., self.z_size:]
+#         epsilon = torch.randn(x_shape[:-1] + [self.z_size], device=x.device)
+#         z = mu + torch.exp(log_sigma / 2) * epsilon
+#         kl = 0.5 * torch.mean(torch.exp(log_sigma) + mu ** 2 - 1.0 - log_sigma, dim=-1)
+#         zero = torch.zeros_like(kl)
+#         kl_loss = torch.mean(torch.max(kl - self.free_bits, zero))
+#         output = {}
+#         output['z'] = z
+#         output['b_loss'] = torch.mean(kl_loss * self.kl_beta)
 
-        return output
+#         return output
 
 
 # class VisualDecoder(nn.Module):
@@ -98,9 +98,10 @@ class ImageVAE(nn.Module):
                  kl_beta=300, mode='train'):
         super(ImageVAE, self).__init__()
         self.mode = mode
+        self.kl_beta = kl_beta
         self.bottleneck_bits = bottleneck_bits
         self.visual_encoder = VisualEncoder(input_channels, base_depth, bottleneck_bits, num_categories)
-        self.bottleneck = Bottleneck(bottleneck_bits, free_bits, kl_beta, mode)
+        # self.bottleneck = Bottleneck(bottleneck_bits, free_bits, kl_beta, mode)
         # self.visual_decoder = VisualDecoder(base_depth, bottleneck_bits, output_channels, num_categories)
         # becuase multigpu output must be tensor or dict or tensor, decoder output is distribution
         self.fc = nn.Linear(bottleneck_bits, 1024)
@@ -116,13 +117,22 @@ class ImageVAE(nn.Module):
         self.sigmoid = nn.Sigmoid()
         # self.rec_criterion = nn.BCELoss()
 
+    def reparameterize(self, mu, logvar):
+        std = logvar.mul(0.5).exp_()
+        esp = torch.randn(*mu.size(), device=mu.device)
+        z = mu + std * esp
+        return z
+
     def forward(self, inputs, clss):
         enc_out = self.visual_encoder(inputs, clss)
         enc_out = enc_out.view(-1, 2 * self.bottleneck_bits)
-        b_output = self.bottleneck(enc_out)
-        sampled_bottleneck, b_loss = b_output['z'], b_output['b_loss']
+        # b_output = self.bottleneck(enc_out)
+        # sampled_bottleneck, b_loss = b_output['z'], b_output['b_loss']
 
-        dec_out = self.fc(sampled_bottleneck)
+        mu, logvar = torch.chunk(enc_out, 2, dim=-1)
+        z = self.reparameterize(mu, logvar)
+
+        dec_out = self.fc(z)
         dec_out = dec_out.view([-1, 64, 4, 4])
         dec_out = self.up1(dec_out, clss)
         dec_out = self.up2(dec_out, clss)
@@ -139,19 +149,18 @@ class ImageVAE(nn.Module):
 
         output = {}
         output['dec_out'] = dec_out
-        output['samp_b'] = sampled_bottleneck
+        output['samp_b'] = z
 
         if self.mode == 'train':
             # calculating loss
-            output['b_loss'] = b_loss
+            output['b_loss'] = self.kl_beta * (-0.5 * torch.sum(1 + logvar - mu**2 - logvar.exp()))
             # rec_loss = -dec_out.log_prob(inputs)
             # elbo = torch.mean(-(b_loss + rec_loss))
             # rec_loss = torch.mean(rec_loss)
             # training_loss = -elbo
             # output['rec_loss'] = rec_loss
             # output['training_loss'] = training_loss
-            output['rec_loss'] = F.binary_cross_entropy(dec_out, inputs)
-
+            output['rec_loss'] = F.binary_cross_entropy(dec_out, inputs, size_average=False)
         # dec_out = self.visual_decoder(sampled_bottleneck, clss)
         return output
 
