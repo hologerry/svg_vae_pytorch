@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-# import torch.nn.functional as F
+import torch.nn.functional as F
 
 # from torch.distributions.bernoulli import Bernoulli
 # from torch.distributions.independent import Independent
@@ -114,7 +114,7 @@ class ImageVAE(nn.Module):
         self.conv = nn.Conv2d(base_depth, output_channels, kernel_size=5, padding=2)  # 64
 
         self.sigmoid = nn.Sigmoid()
-        self.rec_criterion = nn.BCELoss()
+        # self.rec_criterion = nn.BCELoss()
 
     def forward(self, inputs, clss):
         enc_out = self.visual_encoder(inputs, clss)
@@ -150,7 +150,7 @@ class ImageVAE(nn.Module):
             # training_loss = -elbo
             # output['rec_loss'] = rec_loss
             # output['training_loss'] = training_loss
-            output['rec_loss'] = self.rec_criterion(dec_out, inputs)
+            output['rec_loss'] = F.binary_cross_entropy(dec_out, inputs)
 
         # dec_out = self.visual_decoder(sampled_bottleneck, clss)
         return output

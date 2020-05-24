@@ -27,6 +27,8 @@ class SVGDataset(data.Dataset):
         item['sequence'] = torch.FloatTensor(cur_glyph['sequence']).view(self.max_seq_len, self.feature_dim)
         # item['rendered'] = torch.FloatTensor(cur_glyph['rendered']).view(1, 64, 64) / 255.
         item['rendered'] = 1.0 - torch.FloatTensor(cur_glyph['rendered']).view(1, 64, 64) / 255.
+        assert torch.min(item['rendered']) >= 0.0
+        assert torch.max(item['rendered']) <= 1.0
         # [0., 1.]
         return item
 
