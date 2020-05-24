@@ -119,7 +119,8 @@ class ConvCINReLu(nn.Module):
         else:
             self.reflection = nn.ReflectionPad2d((padding - 1, padding, padding - 1, padding))
         self.conv = nn.Conv2d(inch, outch, kernel_size, stride, padding=0)
-        self.norm = ConditionalInstanceNorm(outch, num_categories)
+        # self.norm = ConditionalInstanceNorm(outch, num_categories)
+        self.norm = nn.InstanceNorm2d(outch)
         if activation == 'relu':
             self.act = nn.ReLU()
         elif activation == 'leaky':
@@ -150,7 +151,8 @@ class UpsamplingConv(nn.Module):
         #     pad = 2
         #     out_pad = 0
         self.deconv = nn.ConvTranspose2d(inch, outch, kernel_size, stride, padding=pad, output_padding=out_pad)
-        self.norm = ConditionalInstanceNorm(outch, num_categories)
+        # self.norm = ConditionalInstanceNorm(outch, num_categories)
+        self.norm = nn.InstanceNorm2d(outch)
         self.act = nn.ReLU()
 
     def forward(self, x, label):
