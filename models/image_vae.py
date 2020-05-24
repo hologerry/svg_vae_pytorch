@@ -1,7 +1,9 @@
 import torch
-from torch import nn
-from torch.distributions.bernoulli import Bernoulli
-from torch.distributions.independent import Independent
+import torch.nn as nn
+import torch.nn.functional as F
+
+# from torch.distributions.bernoulli import Bernoulli
+# from torch.distributions.independent import Independent
 
 from models.layers import ConvCINReLu, UpsamplingConv
 
@@ -48,8 +50,9 @@ class Bottleneck(nn.Module):
 
         log_sigma = x[..., self.z_size:]
         epsilon = torch.randn(x_shape[:-1] + [self.z_size], device=x.device)
+        print(epsilon.size())
         z = mu + torch.exp(log_sigma / 2) * epsilon
-        kl = 0.5 * torch.mean(torch.exp(log_sigma) + torch.pow(mu, 2) - 1.0 - log_sigma, dim=-1)
+        kl = 0.5 * torch.mean(torch.exp(log_sigma) + mu ** 2 - 1.0 - log_sigma, dim=-1)
         zero = torch.zeros_like(kl)
         kl_loss = torch.mean(torch.max(kl - self.free_bits, zero))
         output = {}
@@ -59,35 +62,35 @@ class Bottleneck(nn.Module):
         return output
 
 
-class VisualDecoder(nn.Module):
-    def __init__(self, base_depth, bottleneck_bits, output_channels, num_categories):
-        super(VisualDecoder, self).__init__()
-        self.fc = nn.Linear(bottleneck_bits, 1024)
+# class VisualDecoder(nn.Module):
+#     def __init__(self, base_depth, bottleneck_bits, output_channels, num_categories):
+#         super(VisualDecoder, self).__init__()
+#         self.fc = nn.Linear(bottleneck_bits, 1024)
 
-        self.up1 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
-        self.up2 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
-        self.up3 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=5, stride=1, num_categories=num_categories)
-        self.up4 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=5, stride=2, num_categories=num_categories)
-        self.up5 = UpsamplingConv(2 * base_depth, base_depth, kernel_size=5, stride=1, num_categories=num_categories)
-        self.up6 = UpsamplingConv(base_depth, base_depth, kernel_size=5, stride=2, num_categories=num_categories)
-        self.up7 = UpsamplingConv(base_depth, base_depth, kernel_size=5, stride=1, num_categories=num_categories)
+#         self.up1 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
+#         self.up2 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
+#         self.up3 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=5, stride=1, num_categories=num_categories)
+#         self.up4 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=5, stride=2, num_categories=num_categories)
+#         self.up5 = UpsamplingConv(2 * base_depth, base_depth, kernel_size=5, stride=1, num_categories=num_categories)
+#         self.up6 = UpsamplingConv(base_depth, base_depth, kernel_size=5, stride=2, num_categories=num_categories)
+#         self.up7 = UpsamplingConv(base_depth, base_depth, kernel_size=5, stride=1, num_categories=num_categories)
 
-        self.conv = nn.Conv2d(base_depth, output_channels, kernel_size=5, padding=2)
+#         self.conv = nn.Conv2d(base_depth, output_channels, kernel_size=5, padding=2)
 
-    def forward(self, bottleneck, clss):
-        out = self.fc(bottleneck)
-        out = out.view([-1, 64, 4, 4])
-        out = self.up1(out, clss)
-        out = self.up2(out, clss)
-        out = self.up3(out, clss)
-        out = self.up4(out, clss)
-        out = self.up5(out, clss)
-        out = self.up6(out, clss)
-        out = self.up7(out, clss)
-        out = self.conv(out)
-        ber = Bernoulli(logits=out)
-        out = Independent(ber, reinterpreted_batch_ndims=3)
-        return out
+#     def forward(self, bottleneck, clss):
+#         out = self.fc(bottleneck)
+#         out = out.view([-1, 64, 4, 4])
+#         out = self.up1(out, clss)
+#         out = self.up2(out, clss)
+#         out = self.up3(out, clss)
+#         out = self.up4(out, clss)
+#         out = self.up5(out, clss)
+#         out = self.up6(out, clss)
+#         out = self.up7(out, clss)
+#         out = self.conv(out)
+#         ber = Bernoulli(logits=out)
+#         out = Independent(ber, reinterpreted_batch_ndims=3)
+#         return out
 
 
 class ImageVAE(nn.Module):
@@ -111,7 +114,7 @@ class ImageVAE(nn.Module):
         self.up7 = UpsamplingConv(base_depth, base_depth, kernel_size=5, stride=1, num_categories=num_categories)  # 64
         self.conv = nn.Conv2d(base_depth, output_channels, kernel_size=5, padding=2)  # 64
 
-        self.img_criterion = nn.MSELoss()
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, inputs, clss):
         enc_out = self.visual_encoder(inputs, clss)
@@ -129,24 +132,25 @@ class ImageVAE(nn.Module):
         dec_out = self.up6(dec_out, clss)
         dec_out = self.up7(dec_out, clss)
         dec_out = self.conv(dec_out)
-        ber = Bernoulli(logits=dec_out)
-        dec_out = Independent(ber, reinterpreted_batch_ndims=3)
-        output_img = dec_out.mean
+        dec_out = self.sigmoid(dec_out)
+        # ber = Bernoulli(logits=dec_out)
+        # dec_out = Independent(ber, reinterpreted_batch_ndims=3)
+        # output_img = dec_out.mean
 
         output = {}
-        output['dec_out'] = output_img
+        output['dec_out'] = dec_out
         output['samp_b'] = sampled_bottleneck
 
         if self.mode == 'train':
             # calculating loss
             output['b_loss'] = b_loss
-            rec_loss = -dec_out.log_prob(inputs)
-            elbo = torch.mean(-(b_loss + rec_loss))
-            rec_loss = torch.mean(rec_loss)
-            training_loss = -elbo
-            output['rec_loss'] = rec_loss
-            output['training_loss'] = training_loss
-            output['img_rec_loss'] = self.img_criterion(output_img, inputs)
+            # rec_loss = -dec_out.log_prob(inputs)
+            # elbo = torch.mean(-(b_loss + rec_loss))
+            # rec_loss = torch.mean(rec_loss)
+            # training_loss = -elbo
+            # output['rec_loss'] = rec_loss
+            # output['training_loss'] = training_loss
+            output['rec_loss'] = F.binary_cross_entropy_with_logits(dec_out, inputs, weight=inputs)
 
         # dec_out = self.visual_decoder(sampled_bottleneck, clss)
         return output
@@ -163,5 +167,9 @@ if __name__ == "__main__":
     sampled_bottleneck = output['samp_b']
     b_loss = output['b_loss']
     rec_loss = output['rec_loss']
-    training_loss = output['training_loss']
-    print(dec_out.size(), sampled_bottleneck.size(), b_loss.size(), rec_loss.size(), training_loss.size())
+    # training_loss = output['training_loss']
+    print(dec_out.size())
+    print(sampled_bottleneck.size())
+    print(b_loss.size())
+    print(rec_loss.size())
+    # print(training_loss.size())

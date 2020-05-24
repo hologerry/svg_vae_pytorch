@@ -54,12 +54,12 @@ def train_image_vae(opts):
             output_image = output['dec_out']
             b_loss = output['b_loss'].mean()
             rec_loss = output['rec_loss'].mean()
-            training_loss = output['training_loss'].mean()
+            # training_loss = output['training_loss'].mean()
             # img_rec_loss = output['img_rec_loss'].mean()
 
             # TODO: b_loss, rec_loss and training_loss are negative huge, fall to nan
-            loss = b_loss + rec_loss + training_loss
-            # loss = b_loss + img_rec_loss
+            # loss = b_loss + rec_loss + training_loss
+            loss = b_loss + rec_loss
 
             optimizer.zero_grad()
             loss.backward()
@@ -72,7 +72,7 @@ def train_image_vae(opts):
                 f"Loss: {loss.item():.6f}, "
                 f"b_loss: {b_loss.item():.6f}, "
                 f"rec_loss: {rec_loss.item():.6f}, "
-                f"training_loss: {training_loss.item():.6f}, "
+                # f"training_loss: {training_loss.item():.6f}, "
                 # f"img_rec_loss: {img_rec_loss.item():.6f}"
             )
             logfile.write(message + '\n')
@@ -83,7 +83,7 @@ def train_image_vae(opts):
                 writer.add_scalar('Loss/loss', loss.item(), batches_done)
                 writer.add_scalar('Loss/b_loss', b_loss.item(), batches_done)
                 writer.add_scalar('Loss/rec_loss', rec_loss.item(), batches_done)
-                writer.add_scalar('Loss/training_loss', training_loss.item(), batches_done)
+                # writer.add_scalar('Loss/training_loss', training_loss.item(), batches_done)
 
             if opts.sample_freq > 0 and batches_done % opts.sample_freq == 0:
                 img_sample = torch.cat((input_image.data, output_image.data, target_image.data), -2)
