@@ -129,7 +129,8 @@ class ConvCINReLu(nn.Module):
     def forward(self, x, label):
         x = self.reflection(x)
         x = self.conv(x)
-        x = self.norm(x, label)
+        # x = self.norm(x, label)
+        x = self.norm(x)
         x = self.act(x)
         return x
 
@@ -159,7 +160,8 @@ class UpsamplingConv(nn.Module):
         # out = self.upsample(x)
         # out = self.conv(out, label)
         out = self.deconv(x)
-        out = self.norm(out, label)
+        # out = self.norm(out, label)
+        out = self.norm(out)
         out = self.act(out)
         return out
 
