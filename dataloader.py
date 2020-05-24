@@ -29,6 +29,7 @@ class SVGDataset(data.Dataset):
         item['rendered'] = 1.0 - torch.FloatTensor(cur_glyph['rendered']).view(1, 64, 64) / 255.
         assert torch.min(item['rendered']) >= 0.0
         assert torch.max(item['rendered']) <= 1.0
+        item['rendered'] = (item['rendered'] - torch.mean(item['rendered'])) / torch.std(item['rendered'])
         # [0., 1.]
         return item
 

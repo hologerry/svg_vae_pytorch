@@ -178,7 +178,7 @@ class ImageVAE(nn.Module):
             # training_loss = -elbo
             # output['rec_loss'] = rec_loss
             # output['training_loss'] = training_loss
-            output['rec_loss'] = F.binary_cross_entropy(dec_out, inputs, size_average=False)
+            output['rec_loss'] = F.binary_cross_entropy(dec_out, inputs, reduction='sum')
         # dec_out = self.visual_decoder(sampled_bottleneck, clss)
         return output
 
