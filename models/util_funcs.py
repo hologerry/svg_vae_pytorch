@@ -1,12 +1,13 @@
 import torch
+import torch.nn.functional as F
 
 
 def shift_right(x, pad_value=None):
     if pad_value is None:
         # the pad arg is move from last dim to first dim
-        shifted = torch.pad(x, (0, 0, 0, 0, 0, 0, 1, 0))[:-1, :, :, :]
+        shifted = F.pad(x, (0, 0, 0, 0, 1, 0))[:-1, :, :]
     else:
-        shifted = torch.cat([pad_value, x], axis=0)[:-1, :, :, :]
+        shifted = torch.cat([pad_value, x], axis=0)[:-1, :, :]
     return shifted
 
 

@@ -13,14 +13,14 @@ from models.image_vae import ImageVAE
 class SVGLSTMDecoder(nn.Module):
     def __init__(self, input_channels=1, output_channels=1, num_categories=52,
                  base_depth=32, bottleneck_bits=32, free_bits=0.15,
-                 kl_beta=300, mode='train', sg_bottleneck=True, max_sequence_length=51,
+                 kl_beta=300, mode='train', max_sequence_length=51,
                  hidden_size=1024, use_cls=True, dropout_p=0.5,
                  twice_decoder=False, num_hidden_layers=4, feature_dim=10, ff_dropout=True):
         super().__init__()
         self.mode = mode
         self.bottleneck_bits = bottleneck_bits
         self.num_categories = num_categories
-        self.sg_bottleneck = sg_bottleneck
+        # self.sg_bottleneck = sg_bottleneck
         self.ff_dropout = ff_dropout
         self.num_hidden_layers = num_hidden_layers
         self.hidden_size = hidden_size
@@ -47,7 +47,10 @@ class SVGLSTMDecoder(nn.Module):
             init_state_cell.append(c0.unsqueeze(0))
         init_state_hidden = torch.cat(init_state_hidden, dim=0)
         init_state_cell = torch.cat(init_state_cell, dim=0)
-        return (init_state_hidden, init_state_cell)
+        init_state = {}
+        init_state['hiden'] = init_state_hidden
+        init_state['cell'] = init_state_cell
+        return init_state
 
     def forward(self, inpt, sampled_bottleneck, clss, hidden, cell):
         if self.mode == 'train':
@@ -57,7 +60,11 @@ class SVGLSTMDecoder(nn.Module):
         if self.ff_dropout:
             inpt = self.dropout(inpt)
         output, (hidden, cell) = self.rnn(inpt, (hidden, cell))
-        return output, (hidden, cell)
+        decoder_output = {}
+        decoder_output['output'] = output
+        decoder_output['hidden'] = hidden
+        decoder_output['cell'] = cell
+        return decoder_output
 
 
 class SVGMDNTop(nn.Module):
@@ -89,9 +96,9 @@ class SVGMDNTop(nn.Module):
         self.fc = nn.Linear(self.hidden_size, self.output_channel)
         self.identity = nn.Identity()
 
-    def forward(self, decoder_output):
+    def forward(self, decoder_output, mode='train'):
         ret = self.fc(decoder_output)
-        if self.hard or self.mode != 'train':
+        if self.hard or mode != 'train':
             # apply temperature, do softmax
             command = self.identity(ret[..., :self.command_len]) / self.mix_temperature
             command_max = torch.max(command, dim=-1, keepdim=True)[0]
@@ -109,7 +116,8 @@ class SVGMDNTop(nn.Module):
             arguments = ret[..., self.command_len:]
             # args are [seq_len, batch, 6*3*num_mix], and get [seq_len*batch*6, 3*num_mix]
             arguments = arguments.reshape([-1, 3 * self.num_mix])
-            out_logmix, out_mean, out_logstd = self.get_mdn_coef(arguments)
+            mdn_coef = self.get_mdn_coef(arguments)
+            out_logmix, out_mean, out_logstd = mdn_coef['logmix'], mdn_coef['mean'], mdn_coef['logstd']
             # these are [seq_len*batch*6, num_mix]
 
             # apply temp to logmix
@@ -143,7 +151,11 @@ class SVGMDNTop(nn.Module):
         """Compute mdn coefficient, aka, split arguments to 3 chunck with size num_mix"""
         logmix, mean, logstd = torch.split(arguments, self.num_mix, dim=-1)
         logmix = logmix - torch.logsumexp(logmix, -1, keepdim=True)
-        return logmix, mean, logstd
+        mdn_coef = {}
+        mdn_coef['logmix'] = logmix
+        mdn_coef['mean'] = mean
+        mdn_coef['logstd'] = logstd
+        return mdn_coef
 
     def get_mdn_loss(self, logmix, mean, logstd, args_flat, batch_mask):
         """Compute MDN loss term for svg decoder model."""
@@ -170,7 +182,8 @@ class SVGMDNTop(nn.Module):
         predict_args = mdn_top_out[..., self.command_len:]
         # [seq_len, batch, 6*3*num_mix]
         predict_args = predict_args.reshape([-1, 3 * self.num_mix])
-        out_logmix, out_mean, out_logstd = self.get_mdn_coef(predict_args)
+        mdn_coef = self.get_mdn_coef(predict_args)
+        out_logmix, out_mean, out_logstd = mdn_coef['logmix'], mdn_coef['mean'], mdn_coef['logstd']
 
         # create a mask for elements to ignore on it
         masktemplate = torch.Tensor([[0., 0., 0., 0., 0., 0.],
@@ -188,7 +201,10 @@ class SVGMDNTop(nn.Module):
         else:
             softmax_xent_loss = torch.mean(softmax_xent_loss)
 
-        return mdn_loss, softmax_xent_loss
+        svg_losses = {}
+        svg_losses['mdn_loss'] = mdn_loss
+        svg_losses['softmax_xent_loss'] = softmax_xent_loss
+        return svg_losses
 
 
 if __name__ == "__main__":
@@ -203,7 +219,7 @@ if __name__ == "__main__":
     sg_bottleneck = True
     tearcher_force_ratio = 1.0
 
-    mode = 'test'
+    mode = 'train'
 
     image = torch.randn((batch_size, 1, 64, 64)).to(device)
     clss = torch.randint(low=0, high=num_categories, size=(batch_size, 1), dtype=torch.long).to(device)
@@ -213,9 +229,12 @@ if __name__ == "__main__":
     if sg_bottleneck:
         image_vae = image_vae.eval().to(device)
 
-    sampled_bottleneck, _, _ = image_vae(image, clss)
+    vae_output = image_vae(image, clss)
+    sampled_bottleneck = vae_output['samp_b']
 
     trg = torch.randn((seq_len, batch_size, feature_dim)).to(device)  # [seq_len, batch_size, feature_dim]
+    trg = util_funcs.shift_right(trg)
+    print(trg.size())
     trg_len = trg.size(0)
 
     outputs = torch.zeros(trg_len, batch_size, hidden_size).to(device)
@@ -225,10 +244,12 @@ if __name__ == "__main__":
         inpt = torch.zeros(1, batch_size, hidden_size).to(device)
     # print(inpt.size())
 
-    hidden, cell = svg_decoder.init_state_input(sampled_bottleneck)
+    init_state = svg_decoder.init_state_input(sampled_bottleneck)
+    hidden, cell = init_state['hidden'], init_state['cell']
 
     for t in range(1, trg_len):
-        output, (hidden, cell) = svg_decoder(inpt, sampled_bottleneck, clss, hidden, cell)
+        decoder_output = svg_decoder(inpt, sampled_bottleneck, clss, hidden, cell)
+        output, hidden, cell = decoder_output['output'], decoder_output['hidden'], decoder_output['cell']
         outputs[t] = output
 
         # print(output.size())
@@ -245,5 +266,6 @@ if __name__ == "__main__":
     # print(mode, top_output.size())
 
     if mode == 'train':
-        mdn_loss, softmax_xent_loss = mdn_top_layer.svg_loss(top_output, trg)
+        svg_losses = mdn_top_layer.svg_loss(top_output, trg)
+        mdn_loss, softmax_xent_loss = svg_losses['mdn_loss'], svg_losses['softmax_xent_loss']
         # print(mdn_loss, softmax_xent_loss)
