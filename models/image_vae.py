@@ -102,14 +102,14 @@ class ImageVAE(nn.Module):
         # self.visual_decoder = VisualDecoder(base_depth, bottleneck_bits, output_channels, num_categories)
         # becuase multigpu output must be tensor or dict or tensor, decoder output is distribution
         self.fc = nn.Linear(bottleneck_bits, 1024)
-        self.up1 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
-        self.up2 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
-        self.up3 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=5, stride=1, num_categories=num_categories)
-        self.up4 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=5, stride=2, num_categories=num_categories)
-        self.up5 = UpsamplingConv(2 * base_depth, base_depth, kernel_size=5, stride=1, num_categories=num_categories)
-        self.up6 = UpsamplingConv(base_depth, base_depth, kernel_size=5, stride=2, num_categories=num_categories)
-        self.up7 = UpsamplingConv(base_depth, base_depth, kernel_size=5, stride=1, num_categories=num_categories)
-        self.conv = nn.Conv2d(base_depth, output_channels, kernel_size=5, padding=2)
+        self.up1 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)  # 8
+        self.up2 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)  # 16
+        self.up3 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=5, stride=1, num_categories=num_categories)  # 16
+        self.up4 = UpsamplingConv(2 * base_depth, 2 * base_depth, kernel_size=5, stride=2, num_categories=num_categories)  # 32
+        self.up5 = UpsamplingConv(2 * base_depth, base_depth, kernel_size=5, stride=1, num_categories=num_categories)  # 32
+        self.up6 = UpsamplingConv(base_depth, base_depth, kernel_size=5, stride=2, num_categories=num_categories)  # 64
+        self.up7 = UpsamplingConv(base_depth, base_depth, kernel_size=5, stride=1, num_categories=num_categories)  # 64
+        self.conv = nn.Conv2d(base_depth, output_channels, kernel_size=5, padding=2)  # 64
 
         self.img_criterion = nn.MSELoss()
 
@@ -122,13 +122,21 @@ class ImageVAE(nn.Module):
         dec_out = self.fc(sampled_bottleneck)
         dec_out = dec_out.view([-1, 64, 4, 4])
         dec_out = self.up1(dec_out, clss)
+        print("out1 size", dec_out.size())
         dec_out = self.up2(dec_out, clss)
+        print("out2 size", dec_out.size())
         dec_out = self.up3(dec_out, clss)
+        print("out3 size", dec_out.size())
         dec_out = self.up4(dec_out, clss)
+        print("out4 size", dec_out.size())
         dec_out = self.up5(dec_out, clss)
+        print("out5 size", dec_out.size())
         dec_out = self.up6(dec_out, clss)
+        print("out6 size", dec_out.size())
         dec_out = self.up7(dec_out, clss)
+        print("out7 size", dec_out.size())
         dec_out = self.conv(dec_out)
+        print("out conv size", dec_out.size())
         ber = Bernoulli(logits=dec_out)
         dec_out = Independent(ber, reinterpreted_batch_ndims=3)
         output_img = dec_out.mean

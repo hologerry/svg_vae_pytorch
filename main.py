@@ -51,11 +51,11 @@ def train_image_vae(opts):
             b_loss = output['b_loss'].mean()
             rec_loss = output['rec_loss'].mean()
             training_loss = output['training_loss'].mean()
-            img_rec_loss = output['img_rec_loss'].mean()
+            # img_rec_loss = output['img_rec_loss'].mean()
 
             # TODO: b_loss, rec_loss and training_loss are negative huge, fall to nan
-            # loss = b_loss + rec_loss + training_loss + img_rec_loss
-            loss = b_loss + img_rec_loss
+            loss = b_loss + rec_loss + training_loss
+            # loss = b_loss + img_rec_loss
 
             optimizer.zero_grad()
             loss.backward()
@@ -69,7 +69,7 @@ def train_image_vae(opts):
                 f"b_loss: {b_loss.item():.6f}, "
                 f"rec_loss: {rec_loss.item():.6f}, "
                 f"training_loss: {training_loss.item():.6f}, "
-                f"img_rec_loss: {img_rec_loss.item():.6f}"
+                # f"img_rec_loss: {img_rec_loss.item():.6f}"
             )
             logfile.write(message + '\n')
             print(message)

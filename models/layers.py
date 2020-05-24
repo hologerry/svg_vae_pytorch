@@ -136,13 +136,30 @@ class ConvCINReLu(nn.Module):
 class UpsamplingConv(nn.Module):
     def __init__(self, inch, outch, kernel_size, stride, num_categories, activation='relu'):
         super(UpsamplingConv, self).__init__()
-        self.upsample = nn.Upsample(scale_factor=stride, mode='bilinear', align_corners=False)
-        self.conv = ConvCINReLu(inch, outch, kernel_size, stride=1, num_categories=num_categories)
+        # self.upsample = nn.Upsample(scale_factor=stride, mode='bilinear', align_corners=False)
+        # self.conv = ConvCINReLu(inch, outch, kernel_size, stride=1, num_categories=num_categories)
+        pad = (kernel_size - 1) // 2
+        out_pad = 1 if kernel_size % 2 == 1 and stride % 2 == 0 else 0
+        # if kernel_size == 4 and stride == 2:
+        #     pad = 1
+        #     out_pad = 0
+        # elif kernel_size == 5 and stride == 2:
+        #     pad = 2
+        #     out_pad = 1
+        # elif kernel_size == 5 and stride == 1:
+        #     pad = 2
+        #     out_pad = 0
+        self.deconv = nn.ConvTranspose2d(inch, outch, kernel_size, stride, padding=pad, output_padding=out_pad)
+        self.norm = ConditionalInstanceNorm(outch, num_categories)
+        self.act = nn.ReLU()
 
     def forward(self, x, label):
-        h1 = self.upsample(x)
-        h2 = self.conv(h1, label)
-        return h2
+        # out = self.upsample(x)
+        # out = self.conv(out, label)
+        out = self.deconv(x)
+        out = self.norm(out, label)
+        out = self.act(out)
+        return out
 
 
 class ResidualBlock(nn.Module):
