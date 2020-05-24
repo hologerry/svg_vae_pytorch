@@ -34,7 +34,7 @@ def get_parser_basic():
     parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
     parser.add_argument('--eps', type=float, default=1e-6, help='Adam epsilon')
     parser.add_argument('--weight_decay', type=float, default=0.0, help='image vae weight decay')
-
+    parser.add_argument('--tboard', type=bool, default=True, help='whether use tensorboard to visulize loss')
     # TODO: weight decay
     return parser
 

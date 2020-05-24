@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam
 from torchvision.utils import save_image
+from tensorboardX import SummayWriter
 
 from dataloader import get_loader
 from models.image_vae import ImageVAE
@@ -40,6 +41,9 @@ def train_image_vae(opts):
 
     optimizer = Adam(model.parameters(), lr=opts.lr, betas=(opts.beta1, opts.beta2), eps=opts.eps, weight_decay=opts.weight_decay)
 
+    if opts.tboard:
+        writer = SummayWriter(log_dir)
+
     for epoch in range(opts.init_epoch, opts.n_epochs):
         for idx, data in enumerate(train_loader):
             input_image = data['rendered'].to(device)
@@ -72,7 +76,14 @@ def train_image_vae(opts):
                 # f"img_rec_loss: {img_rec_loss.item():.6f}"
             )
             logfile.write(message + '\n')
-            print(message)
+            if batches_done % 50 == 0:
+                print(message)
+
+            if opts.tboard:
+                writer.add_scalar('Loss/loss', loss.item(), batches_done)
+                writer.add_scalar('Loss/b_loss', b_loss.item(), batches_done)
+                writer.add_scalar('Loss/rec_loss', rec_loss.item(), batches_done)
+                writer.add_scalar('Loss/training_loss', training_loss.item(), batches_done)
 
             if opts.sample_freq > 0 and batches_done % opts.sample_freq == 0:
                 img_sample = torch.cat((input_image.data, output_image.data, target_image.data), -2)
@@ -159,6 +170,9 @@ def train_svg_decoder(opts):
 
     optimizer = Adam(svg_decoder.parameters(), lr=opts.lr, betas=(opts.beta1, opts.beta2), eps=opts.eps, weight_decay=opts.weight_decay)
 
+    if opts.tboard:
+        writer = SummayWriter(log_dir)
+
     tearcher_force_ratio = 1.0
 
     for epoch in range(opts.init_epoch, opts.n_epochs):
@@ -210,7 +224,13 @@ def train_svg_decoder(opts):
                 f"softmax_xent_loss: {softmax_xent_loss.item():.6f}"
             )
             logfile.write(message + '\n')
-            print(message)
+            if batches_done % 50 == 0:
+                print(message)
+
+            if opts.tboard:
+                writer.add_scalar('Loss/loss', loss.item(), batches_done)
+                writer.add_scalar('Loss/mdn_loss', mdn_loss.item(), batches_done)
+                writer.add_scalar('Loss/softmax_xent_loss', softmax_xent_loss.item(), batches_done)
 
             # TODO: save output svg
             # if opts.sample_freq > 0 and batches_done % opts.sample_freq == 0:
