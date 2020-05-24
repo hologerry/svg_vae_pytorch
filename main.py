@@ -140,7 +140,7 @@ def train_svg_decoder(opts):
                                  kl_beta=opts.kl_beta, mode=opts.mode, max_sequence_length=opts.max_sequence_length,
                                  hidden_size=opts.hidden_size, use_cls=opts.use_cls, dropout_p=opts.dropout,
                                  twice_decoder=opts.twice_decoder, num_hidden_layers=opts.num_hidden_layers,
-                                 feature_dim=opts.feature_dim, ff_dropout=opts.ff_dropout)
+                                 feature_dim=opts.seq_feature_dim, ff_dropout=opts.ff_dropout)
     mdn_top_layer = SVGMDNTop(num_mixture=opts.num_mixture, seq_len=opts.max_seq_len, hidden_size=opts.hidden_size,
                               hard=opts.hard, mode=opts.mode, mix_temperature=opts.mix_temperature,
                               gauss_temperature=opts.gauss_temperature, dont_reduce=opts.dont_reduce)

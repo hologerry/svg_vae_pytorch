@@ -19,7 +19,7 @@ def get_parser_basic():
 
     # data related
     parser.add_argument('--max_seq_len', type=int, default=51, help='maximum length of sequence')
-    parser.add_argument('--feature_dim', type=int, default=10,
+    parser.add_argument('--seq_feature_dim', type=int, default=10,
                         help='feature dim (like vocab size) of one step of sequence feature')
     # experiment related
     parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])
