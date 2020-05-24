@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam
 from torchvision.utils import save_image
-from tensorboardX import SummayWriter
+from tensorboardX import SummaryWriter
 
 from dataloader import get_loader
 from models.image_vae import ImageVAE
@@ -42,7 +42,7 @@ def train_image_vae(opts):
     optimizer = Adam(model.parameters(), lr=opts.lr, betas=(opts.beta1, opts.beta2), eps=opts.eps, weight_decay=opts.weight_decay)
 
     if opts.tboard:
-        writer = SummayWriter(log_dir)
+        writer = SummaryWriter(log_dir)
 
     for epoch in range(opts.init_epoch, opts.n_epochs):
         for idx, data in enumerate(train_loader):
@@ -171,7 +171,7 @@ def train_svg_decoder(opts):
     optimizer = Adam(svg_decoder.parameters(), lr=opts.lr, betas=(opts.beta1, opts.beta2), eps=opts.eps, weight_decay=opts.weight_decay)
 
     if opts.tboard:
-        writer = SummayWriter(log_dir)
+        writer = SummaryWriter(log_dir)
 
     tearcher_force_ratio = 1.0
 
