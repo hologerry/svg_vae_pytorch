@@ -171,7 +171,7 @@ class ImageVAE(nn.Module):
 
         if self.mode == 'train':
             # calculating loss
-            output['b_loss'] = self.kl_beta * (-0.5 * torch.sum(1 + logvar - mu**2 - logvar.exp()))
+            output['b_loss'] = self.kl_beta * (-0.5 * torch.sum(1 + logvar - mu**2 - torch.exp(min(logvar, 99999))))
             # rec_loss = -dec_out.log_prob(inputs)
             # elbo = torch.mean(-(b_loss + rec_loss))
             # rec_loss = torch.mean(rec_loss)

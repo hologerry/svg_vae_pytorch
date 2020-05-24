@@ -3,6 +3,7 @@ import pickle
 
 import torch
 import torch.utils.data as data
+import torchvision.transforms as T
 
 
 class SVGDataset(data.Dataset):
@@ -18,6 +19,7 @@ class SVGDataset(data.Dataset):
         print(f"Finished loading")
         self.max_seq_len = max_seq_len
         self.feature_dim = seq_feature_dim
+        self.trans = T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
 
     def __getitem__(self, index):
         cur_glyph = self.all_glyphs[index]
@@ -27,9 +29,7 @@ class SVGDataset(data.Dataset):
         item['sequence'] = torch.FloatTensor(cur_glyph['sequence']).view(self.max_seq_len, self.feature_dim)
         # item['rendered'] = torch.FloatTensor(cur_glyph['rendered']).view(1, 64, 64) / 255.
         item['rendered'] = 1.0 - torch.FloatTensor(cur_glyph['rendered']).view(1, 64, 64) / 255.
-        assert torch.min(item['rendered']) >= 0.0
-        assert torch.max(item['rendered']) <= 1.0
-        item['rendered'] = (item['rendered'] - torch.mean(item['rendered'])) / torch.std(item['rendered'])
+        item['rendered'] = self.trans(item['rendered'])
         # [0., 1.]
         return item
 
