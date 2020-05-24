@@ -12,7 +12,7 @@ def get_parser_basic():
                         help='image vae initializer type')
     parser.add_argument('--initializer_gain', type=float, default=1.0, help='image vae initializer initializer gain')
     parser.add_argument('--bottleneck_bits', type=int, default=32, help='image vae number of bottleneck bits')
-    parser.add_argument('--kl_beta', type=float, default=0.01, help='image vae kl loss beta')
+    parser.add_argument('--kl_beta', type=float, default=0.1, help='image vae kl loss beta')
     parser.add_argument('--free_bits_div', type=int, default=4, help='image vae free bits div, not used')
     parser.add_argument('--free_bits', type=float, default=0.15, help='image vae free bits')
     parser.add_argument('--num_categories', type=int, default=52, help='number of glyphs, original is 62')

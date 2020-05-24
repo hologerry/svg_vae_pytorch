@@ -8,29 +8,29 @@ import torch.nn.functional as F
 from models.layers import ConvCINReLu, UpsamplingConv
 
 
-class VisualEncoder(nn.Module):
-    def __init__(self, input_channels, base_depth, bottleneck_bits, num_categories):
-        super(VisualEncoder, self).__init__()
-        self.bottleneck_bits = bottleneck_bits
-        self.down1 = ConvCINReLu(inch=input_channels, outch=base_depth, kernel_size=5, stride=1, num_categories=num_categories)
-        self.down2 = ConvCINReLu(inch=base_depth, outch=base_depth, kernel_size=5, stride=2, num_categories=num_categories)
-        self.down3 = ConvCINReLu(inch=base_depth, outch=2 * base_depth, kernel_size=5, stride=1, num_categories=num_categories)
-        self.down4 = ConvCINReLu(inch=2 * base_depth, outch=2 * base_depth, kernel_size=5, stride=2, num_categories=num_categories)
-        self.down5 = ConvCINReLu(inch=2 * base_depth, outch=2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
-        self.down6 = ConvCINReLu(inch=2 * base_depth, outch=2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
-        self.flatten = nn.Flatten()
-        self.fc = nn.Linear(1024, 2 * bottleneck_bits, bias=True)
+# class VisualEncoder(nn.Module):
+#     def __init__(self, input_channels, base_depth, bottleneck_bits, num_categories):
+#         super(VisualEncoder, self).__init__()
+#         self.bottleneck_bits = bottleneck_bits
+#         self.down1 = ConvCINReLu(inch=input_channels, outch=base_depth, kernel_size=5, stride=1, num_categories=num_categories)
+#         self.down2 = ConvCINReLu(inch=base_depth, outch=base_depth, kernel_size=5, stride=2, num_categories=num_categories)
+#         self.down3 = ConvCINReLu(inch=base_depth, outch=2 * base_depth, kernel_size=5, stride=1, num_categories=num_categories)
+#         self.down4 = ConvCINReLu(inch=2 * base_depth, outch=2 * base_depth, kernel_size=5, stride=2, num_categories=num_categories)
+#         self.down5 = ConvCINReLu(inch=2 * base_depth, outch=2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
+#         self.down6 = ConvCINReLu(inch=2 * base_depth, outch=2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
+#         self.flatten = nn.Flatten()
+#         self.fc = nn.Linear(1024, 2 * bottleneck_bits, bias=True)
 
-    def forward(self, x, clss):
-        out = self.down1(x, clss)
-        out = self.down2(out, clss)
-        out = self.down3(out, clss)
-        out = self.down4(out, clss)
-        out = self.down5(out, clss)
-        out = self.down6(out, clss)
-        out = self.flatten(out)
-        out = self.fc(out)
-        return out
+#     def forward(self, x, clss):
+#         out = self.down1(x, clss)
+#         out = self.down2(out, clss)
+#         out = self.down3(out, clss)
+#         out = self.down4(out, clss)
+#         out = self.down5(out, clss)
+#         out = self.down6(out, clss)
+#         out = self.flatten(out)
+#         out = self.fc(out)
+#         return out
 
 
 # class Bottleneck(nn.Module):
@@ -100,7 +100,16 @@ class ImageVAE(nn.Module):
         self.mode = mode
         self.kl_beta = kl_beta
         self.bottleneck_bits = bottleneck_bits
-        self.visual_encoder = VisualEncoder(input_channels, base_depth, bottleneck_bits, num_categories)
+        # self.visual_encoder = VisualEncoder(input_channels, base_depth, bottleneck_bits, num_categories)
+        self.down1 = ConvCINReLu(inch=input_channels, outch=base_depth, kernel_size=5, stride=1, num_categories=num_categories)
+        self.down2 = ConvCINReLu(inch=base_depth, outch=base_depth, kernel_size=5, stride=2, num_categories=num_categories)
+        self.down3 = ConvCINReLu(inch=base_depth, outch=2 * base_depth, kernel_size=5, stride=1, num_categories=num_categories)
+        self.down4 = ConvCINReLu(inch=2 * base_depth, outch=2 * base_depth, kernel_size=5, stride=2, num_categories=num_categories)
+        self.down5 = ConvCINReLu(inch=2 * base_depth, outch=2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
+        self.down6 = ConvCINReLu(inch=2 * base_depth, outch=2 * base_depth, kernel_size=4, stride=2, num_categories=num_categories)
+        self.flatten = nn.Flatten()
+        self.fc1 = nn.Linear(1024, bottleneck_bits, bias=True)
+        self.fc2 = nn.Linear(1024, bottleneck_bits, bias=True)
         # self.bottleneck = Bottleneck(bottleneck_bits, free_bits, kl_beta, mode)
         # self.visual_decoder = VisualDecoder(base_depth, bottleneck_bits, output_channels, num_categories)
         # becuase multigpu output must be tensor or dict or tensor, decoder output is distribution
@@ -112,28 +121,37 @@ class ImageVAE(nn.Module):
         self.up5 = UpsamplingConv(2 * base_depth, base_depth, kernel_size=5, stride=1, num_categories=num_categories)  # 32
         self.up6 = UpsamplingConv(base_depth, base_depth, kernel_size=5, stride=2, num_categories=num_categories)  # 64
         self.up7 = UpsamplingConv(base_depth, base_depth, kernel_size=5, stride=1, num_categories=num_categories)  # 64
-        self.conv = nn.Conv2d(base_depth, output_channels, kernel_size=5, padding=2)  # 64
 
+        self.conv = nn.Conv2d(base_depth, output_channels, kernel_size=5, padding=2)  # 64
         self.sigmoid = nn.Sigmoid()
         # self.rec_criterion = nn.BCELoss()
 
     def reparameterize(self, mu, logvar):
         std = logvar.mul(0.5).exp_()
-        esp = torch.randn(*mu.size(), device=mu.device)
+        # return torch.normal(mu, std)
+        esp = torch.randn(*mu.size())
         z = mu + std * esp
         return z
 
     def forward(self, inputs, clss):
-        enc_out = self.visual_encoder(inputs, clss)
-        enc_out = enc_out.view(-1, 2 * self.bottleneck_bits)
+        enc_out = self.down1(inputs, clss)
+        enc_out = self.down2(enc_out, clss)
+        enc_out = self.down3(enc_out, clss)
+        enc_out = self.down4(enc_out, clss)
+        enc_out = self.down5(enc_out, clss)
+        enc_out = self.down6(enc_out, clss)
+        h = self.flatten(enc_out)
+
+        mu, logvar = self.fc1(h), self.fc2(h)
+        z = self.reparameterize(mu, logvar)
+        # enc_out = enc_out.view(-1, 2 * self.bottleneck_bits)
         # b_output = self.bottleneck(enc_out)
         # sampled_bottleneck, b_loss = b_output['z'], b_output['b_loss']
+        # mu, logvar = torch.chunk(enc_out, 2, dim=-1)
+        # z = self.reparameterize(mu, logvar)
 
-        mu, logvar = torch.chunk(enc_out, 2, dim=-1)
-        z = self.reparameterize(mu, logvar)
-
-        dec_out = self.fc(z)
-        dec_out = dec_out.view([-1, 64, 4, 4])
+        z = self.fc(z)
+        dec_out = z.view([-1, 64, 4, 4])
         dec_out = self.up1(dec_out, clss)
         dec_out = self.up2(dec_out, clss)
         dec_out = self.up3(dec_out, clss)
