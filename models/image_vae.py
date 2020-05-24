@@ -113,7 +113,6 @@ class ImageVAE(nn.Module):
 
         self.img_criterion = nn.MSELoss()
 
-
     def forward(self, inputs, clss):
         enc_out = self.visual_encoder(inputs, clss)
         enc_out = enc_out.view(-1, 2 * self.bottleneck_bits)

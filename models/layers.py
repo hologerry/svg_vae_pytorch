@@ -117,7 +117,7 @@ class ConvCINReLu(nn.Module):
         if kernel_size % 2 == 1:
             self.reflection = nn.ReflectionPad2d(padding)
         else:
-            self.reflection = nn.ReflectionPad2d((padding-1, padding, padding-1, padding))
+            self.reflection = nn.ReflectionPad2d((padding - 1, padding, padding - 1, padding))
         self.conv = nn.Conv2d(inch, outch, kernel_size, stride, padding=0)
         self.norm = ConditionalInstanceNorm(outch, num_categories)
         if activation == 'relu':

@@ -51,6 +51,7 @@ def train_image_vae(opts):
             training_loss = output['training_loss'].mean()
             img_rec_loss = output['img_rec_loss'].mean()
 
+            # TODO: b_loss, rec_loss and training_loss are negative huge, fall to nan
             # loss = b_loss + rec_loss + training_loss + img_rec_loss
             loss = b_loss + img_rec_loss
 
