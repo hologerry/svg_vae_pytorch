@@ -45,11 +45,14 @@ class ConditionalVAE(BaseVAE):
                  latent_dim: int,
                  hidden_dims: List = None,
                  img_size: int = 64,
+                 kl_beta: float = 1.0,
                  **kwargs) -> None:
         super(ConditionalVAE, self).__init__()
 
         self.latent_dim = latent_dim
         self.img_size = img_size
+
+        self.kl_beta = kl_beta
 
         self.embed_class = nn.Linear(num_classes, img_size * img_size)
         self.embed_data = nn.Conv2d(in_channels, in_channels, kernel_size=1)
@@ -61,13 +64,10 @@ class ConditionalVAE(BaseVAE):
         in_channels += 1  # To account for the extra label channel
         # Build Encoder
         for h_dim in hidden_dims:
-            modules.append(
-                nn.Sequential(
-                    nn.Conv2d(in_channels, out_channels=h_dim,
-                              kernel_size=3, stride=2, padding=1),
-                    nn.BatchNorm2d(h_dim),
-                    nn.LeakyReLU())
-            )
+            modules.append(nn.Sequential(nn.Conv2d(in_channels, out_channels=h_dim,
+                                                   kernel_size=3, stride=2, padding=1),
+                                         nn.BatchNorm2d(h_dim),
+                                         nn.LeakyReLU()))
             in_channels = h_dim
 
         self.encoder = nn.Sequential(*modules)
@@ -82,16 +82,14 @@ class ConditionalVAE(BaseVAE):
         hidden_dims.reverse()
 
         for i in range(len(hidden_dims) - 1):
-            modules.append(
-                nn.Sequential(nn.ConvTranspose2d(hidden_dims[i],
-                                                 hidden_dims[i + 1],
-                                                 kernel_size=3,
-                                                 stride=2,
-                                                 padding=1,
-                                                 output_padding=1),
-                              nn.BatchNorm2d(hidden_dims[i + 1]),
-                              nn.LeakyReLU())
-            )
+            modules.append(nn.Sequential(nn.ConvTranspose2d(hidden_dims[i],
+                                                            hidden_dims[i + 1],
+                                                            kernel_size=3,
+                                                            stride=2,
+                                                            padding=1,
+                                                            output_padding=1),
+                                         nn.BatchNorm2d(hidden_dims[i + 1]),
+                                         nn.LeakyReLU()))
 
         self.decoder = nn.Sequential(*modules)
 
@@ -143,8 +141,8 @@ class ConditionalVAE(BaseVAE):
         eps = torch.randn_like(std)
         return eps * std + mu
 
-    def forward(self, input: Tensor, **kwargs) -> List[Tensor]:
-        y = kwargs['labels'].float()
+    def forward(self, input: Tensor, label: Tensor) -> List[Tensor]:
+        y = label.float()
         embedded_class = self.embed_class(y)
         embedded_class = embedded_class.view(-1, self.img_size, self.img_size).unsqueeze(1)
         embedded_input = self.embed_data(input)
@@ -153,19 +151,21 @@ class ConditionalVAE(BaseVAE):
         mu, log_var = self.encode(x)
 
         z = self.reparameterize(mu, log_var)
-
         z = torch.cat([z, y], dim=1)
         return [self.decode(z), input, mu, log_var]
 
     def loss_function(self,
-                      *args,
+                      recons,
+                      input,
+                      mu,
+                      log_var,
                       **kwargs) -> dict:
-        recons = args[0]
-        input = args[1]
-        mu = args[2]
-        log_var = args[3]
+        # recons = args[0]
+        # input = args[1]
+        # mu = args[2]
+        # log_var = args[3]
 
-        kld_weight = kwargs['M_N']  # Account for the minibatch samples from the dataset
+        kld_weight = self.kl_beta  # Account for the minibatch samples from the dataset
         recons_loss = F.mse_loss(recons, input)
 
         kld_loss = torch.mean(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim=1), dim=0)
@@ -176,6 +176,7 @@ class ConditionalVAE(BaseVAE):
     def sample(self,
                num_samples: int,
                current_device: int,
+               labels: Tensor,
                **kwargs) -> Tensor:
         """
         Samples from the latent space and return the corresponding
@@ -184,9 +185,8 @@ class ConditionalVAE(BaseVAE):
         :param current_device: (Int) Device to run the model
         :return: (Tensor)
         """
-        y = kwargs['labels'].float()
-        z = torch.randn(num_samples,
-                        self.latent_dim)
+        y = labels.float()
+        z = torch.randn(num_samples, self.latent_dim)
 
         z = z.to(current_device)
 
@@ -202,3 +202,16 @@ class ConditionalVAE(BaseVAE):
         """
 
         return self.forward(x, **kwargs)[0]
+
+
+if __name__ == "__main__":
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    image = torch.randn((2, 1, 64, 64)).to(device)
+    label = torch.ones((2, 1), dtype=torch.long).to(device)
+    label = F.one_hot(label, num_classes=52).squeeze(dim=1)
+
+    cvae = ConditionalVAE(1, 52, 32)
+    out = cvae(image, label)
+    losses = cvae.loss_function(*out)
+    for k, v in losses.items():
+        print(k, v)
