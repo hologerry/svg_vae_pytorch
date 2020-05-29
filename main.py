@@ -120,8 +120,8 @@ def train_image_vae(opts):
                         val_losses = model.module.loss_function(*val_output)
 
                         val_loss += val_losses['loss'].item()
-                        val_img_rec_loss += val_output['Reconstruction_Loss'].mean()
-                        val_b_loss += val_output['KLD'].mean()
+                        val_img_rec_loss += val_losses['Reconstruction_Loss'].mean()
+                        val_b_loss += val_losses['KLD'].mean()
 
                         val_img_sample = torch.cat((val_input_image.data, val_output_image.data), -2)
                         val_save_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}.png")
