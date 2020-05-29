@@ -2,12 +2,14 @@ import os
 import random
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.optim import Adam
 from torchvision.utils import save_image
 from tensorboardX import SummaryWriter
 
 from dataloader import get_loader
-from models.image_vae import ImageVAE
+# from models.image_vae import ImageVAE
+from models.vae import ConditionalVAE
 from models.svg_decoder import SVGLSTMDecoder, SVGMDNTop
 from models import util_funcs
 from options import (get_parser_basic, get_parser_image_vae,
@@ -30,10 +32,11 @@ def train_image_vae(opts):
     train_loader = get_loader(opts.data_root, opts.max_seq_len, opts.seq_feature_dim, opts.batch_size, opts.mode)
     val_loader = get_loader(opts.data_root, opts.max_seq_len, opts.seq_feature_dim, 1, 'test')
 
-    model = ImageVAE(input_channels=opts.in_channel, output_channels=opts.out_channel,
-                     num_categories=opts.num_categories, base_depth=opts.base_depth,
-                     bottleneck_bits=opts.bottleneck_bits, free_bits=opts.free_bits,
-                     kl_beta=opts.kl_beta, mode=opts.mode)
+    # model = ImageVAE(input_channels=opts.in_channel, output_channels=opts.out_channel,
+    #                  num_categories=opts.num_categories, base_depth=opts.base_depth,
+    #                  bottleneck_bits=opts.bottleneck_bits, free_bits=opts.free_bits,
+    #                  kl_beta=opts.kl_beta, mode=opts.mode)
+    model = ConditionalVAE(in_channels=opts.in_channel, num_classes=opts.num_categories, latent_dim=opts.bottleneck_bits, kl_beta=opts.kl_beta)
 
     if torch.cuda.is_available() and opts.multi_gpu:
         model = nn.DataParallel(model)
@@ -47,19 +50,28 @@ def train_image_vae(opts):
     for epoch in range(opts.init_epoch, opts.n_epochs):
         for idx, data in enumerate(train_loader):
             input_image = data['rendered'].to(device)
-            target_image = input_image.detach().clone()
+            # target_image = input_image.detach().clone()
             target_clss = data['class'].to(device)
+            target_clss = F.one_hot(target_clss, num_classes=opts.num_categories).squeeze(dim=1)
             output = model(input_image, target_clss)
 
-            output_image = output['dec_out']
-            b_loss = output['b_loss'].mean()
-            rec_loss = output['rec_loss'].mean()
+            # ImageVAE
+            # output_image = output['dec_out']
+            # b_loss = output['b_loss'].mean()
+            # rec_loss = output['rec_loss'].mean()
             # training_loss = output['training_loss'].mean()
             # img_rec_loss = output['img_rec_loss'].mean()
 
-            # TODO: b_loss, rec_loss and training_loss are negative huge, fall to nan
+            # NOTE: b_loss, rec_loss and training_loss are negative huge, fall to nan
             # loss = b_loss + rec_loss + training_loss
-            loss = b_loss + rec_loss
+            # loss = b_loss + rec_loss
+
+            # ConditionalVAE
+            output_image = output[0]
+            losses = model.loss_function(*output)
+            loss = losses['loss']
+            rec_loss = losses['Reconstruction_Loss']
+            b_loss = losses['KLD']
 
             optimizer.zero_grad()
             loss.backward()
@@ -70,8 +82,8 @@ def train_image_vae(opts):
             message = (
                 f"Epoch: {epoch}/{opts.n_epochs}, Batch: {idx}/{len(train_loader)}, "
                 f"Loss: {loss.item():.6f}, "
-                f"b_loss: {b_loss.item():.6f}, "
                 f"rec_loss: {rec_loss.item():.6f}"
+                f"b_loss: {b_loss.item():.6f}, "
                 # f"training_loss: {training_loss.item():.6f}, "
                 # f"img_rec_loss: {img_rec_loss.item():.6f}"
             )
@@ -81,40 +93,56 @@ def train_image_vae(opts):
 
             if opts.tboard:
                 writer.add_scalar('Loss/loss', loss.item(), batches_done)
-                writer.add_scalar('Loss/b_loss', b_loss.item(), batches_done)
                 writer.add_scalar('Loss/rec_loss', rec_loss.item(), batches_done)
+                writer.add_scalar('Loss/b_loss', b_loss.item(), batches_done)
                 # writer.add_scalar('Loss/training_loss', training_loss.item(), batches_done)
 
             if opts.sample_freq > 0 and batches_done % opts.sample_freq == 0:
-                img_sample = torch.cat((input_image.data, output_image.data, target_image.data), -2)
+                img_sample = torch.cat((input_image.data, output_image.data), -2)
                 save_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}.png")
                 save_image(img_sample, save_file, nrow=8, normalize=True)
 
             if opts.val_freq > 0 and batches_done % opts.val_freq == 0:
-                val_loss_value = 0.0
+                val_loss = 0.0
+                val_img_rec_loss = 0.0
+                val_b_loss = 0.0
                 with torch.no_grad():
                     for val_idx, val_data in enumerate(val_loader):
                         if val_idx >= 20:
                             break
                         val_input_image = val_data['rendered'].to(device)
-                        val_target_image = val_input_image.detach().clone()
+                        # val_target_image = val_input_image.detach().clone()
                         val_target_clss = val_data['class'].to(device)
+                        val_target_clss = F.one_hot(val_target_clss, num_classes=opts.num_categories).squeeze(dim=1)
                         val_output = model(val_input_image, val_target_clss)
 
-                        val_output_image = val_output['dec_out']
-                        val_img_rec_loss = val_output['rec_loss'].mean()
+                        val_output_image = val_output[0]
+                        val_losses = model.loss_function(*val_output)
 
-                        val_loss_value += val_img_rec_loss.item()
+                        val_loss += val_losses['loss'].item()
+                        val_img_rec_loss += val_output['Reconstruction_Loss'].mean()
+                        val_b_loss += val_output['KLD'].mean()
 
-                        val_img_sample = torch.cat((val_input_image.data, val_output_image.data, val_target_image.data), -2)
+                        val_img_sample = torch.cat((val_input_image.data, val_output_image.data), -2)
                         val_save_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}.png")
                         save_image(val_img_sample, val_save_file, nrow=8, normalize=True)
 
-                    val_loss_value /= 20
+                    val_loss /= 20
+                    val_img_rec_loss /= 20
+                    val_b_loss /= 20
+
+                    if opts.tboard:
+                        writer.add_scalar('VAL/loss', val_loss, batches_done)
+                        writer.add_scalar('VAL/rec_loss', val_img_rec_loss, batches_done)
+                        writer.add_scalar('VAL/b_loss', val_b_loss, batches_done)
+
                     val_msg = (
                         f"Epoch: {epoch}/{opts.n_epochs}, Batch: {idx}/{len(train_loader)}, "
-                        f"Imag rec loss: {val_loss_value: .6f}"
+                        f"Val loss: {val_loss: .6f}, "
+                        f"Val image rec loss: {val_img_rec_loss: .6f}, "
+                        f"Val kl loss: {val_b_loss: .6f}"
                     )
+
                     val_logfile.write(val_msg + "\n")
                     print(val_msg)
 
@@ -140,10 +168,11 @@ def train_svg_decoder(opts):
     train_loader = get_loader(opts.data_root, opts.max_seq_len, opts.seq_feature_dim, opts.batch_size, opts.mode)
     val_loader = get_loader(opts.data_root, opts.max_seq_len, opts.seq_feature_dim, 1, 'test')
 
-    image_vae = ImageVAE(input_channels=opts.in_channel, output_channels=opts.out_channel,
-                         num_categories=opts.num_categories, base_depth=opts.base_depth,
-                         bottleneck_bits=opts.bottleneck_bits, free_bits=opts.free_bits,
-                         kl_beta=opts.kl_beta, mode=opts.mode)
+    # image_vae = ImageVAE(input_channels=opts.in_channel, output_channels=opts.out_channel,
+    #                      num_categories=opts.num_categories, base_depth=opts.base_depth,
+    #                      bottleneck_bits=opts.bottleneck_bits, free_bits=opts.free_bits,
+    #                      kl_beta=opts.kl_beta, mode=opts.mode)
+    image_vae = ConditionalVAE(in_channels=opts.in_channel, num_classes=opts.num_categories, latent_dim=opts.bottleneck_bits, kl_beta=opts.kl_beta)
 
     svg_decoder = SVGLSTMDecoder(input_channels=opts.in_channel, output_channels=opts.out_channel,
                                  num_categories=opts.num_categories, base_depth=opts.base_depth,
@@ -180,6 +209,7 @@ def train_svg_decoder(opts):
             input_image = data['rendered'].to(device)
             # target_image = input_image.detach().clone()
             target_clss = data['class'].to(device)
+            target_clss = F.one_hot(target_clss, num_classes=opts.num_categories).squeeze(dim=1)
             target_seq = data['sequence'].to(device)
             # sequence first batch second
             target_seq = target_seq.reshape(target_seq.size(1), target_seq.size(0), target_seq.size(2))
@@ -188,7 +218,7 @@ def train_svg_decoder(opts):
             outputs = torch.zeros(target_seq.size(0), target_seq.size(1), target_seq.size(2)).to(device)
 
             vae_output = image_vae(input_image, target_clss)
-            sampled_bottleneck = vae_output['samp_b']
+            sampled_bottleneck = vae_output[2]  # z
             inpt = target_seq[0:, ...]
 
             init_state = svg_decoder.init_state_input(sampled_bottleneck)
@@ -247,7 +277,7 @@ def train_svg_decoder(opts):
                         val_input_image = val_data['rendered'].to(device)
                         # val_target_image = val_input_image.detach().clone()
                         val_target_clss = val_data['class'].to(device)
-
+                        val_target_clss = F.one_hot(val_target_clss, num_classes=opts.num_categories).squeeze(dim=1)
                         val_target_seq = val_data['sequence'].to(device)
                         # sequence first batch second
                         val_target_seq = val_target_seq.reshape(val_target_seq.size(1), val_target_seq.size(0), val_target_seq.size(2))
@@ -256,7 +286,7 @@ def train_svg_decoder(opts):
                         val_outputs = torch.zeros(val_target_seq.size(0), val_target_seq.size(1), val_target_seq.size(2)).to(device)
 
                         vae_output = image_vae(val_input_image, val_target_clss)
-                        val_sampled_bottleneck = vae_output['samp_b']
+                        val_sampled_bottleneck = vae_output[3]
                         val_inpt = val_target_seq[0:, ...]
 
                         val_init_state = svg_decoder.init_state_input(val_sampled_bottleneck)
