@@ -157,6 +157,7 @@ class ConditionalVAE(BaseVAE):
     def loss_function(self,
                       recons,
                       input,
+                      z,
                       mu,
                       log_var,
                       **kwargs) -> dict:

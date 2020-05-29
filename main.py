@@ -68,7 +68,7 @@ def train_image_vae(opts):
 
             # ConditionalVAE
             output_image = output[0]
-            losses = model.loss_function(*output)
+            losses = model.module.loss_function(*output)
             loss = losses['loss']
             rec_loss = losses['Reconstruction_Loss']
             b_loss = losses['KLD']
@@ -117,7 +117,7 @@ def train_image_vae(opts):
                         val_output = model(val_input_image, val_target_clss)
 
                         val_output_image = val_output[0]
-                        val_losses = model.loss_function(*val_output)
+                        val_losses = model.module.loss_function(*val_output)
 
                         val_loss += val_losses['loss'].item()
                         val_img_rec_loss += val_output['Reconstruction_Loss'].mean()
