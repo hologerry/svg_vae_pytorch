@@ -19,7 +19,7 @@ class SVGDataset(data.Dataset):
         print(f"Finished loading")
         self.max_seq_len = max_seq_len
         self.feature_dim = seq_feature_dim
-        self.trans = T.Normalize(mean=(0.5), std=(0.5))
+        self.trans = T.Normalize([0.5], [0.5])
 
     def __getitem__(self, index):
         cur_glyph = self.all_glyphs[index]
