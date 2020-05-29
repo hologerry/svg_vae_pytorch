@@ -101,7 +101,7 @@ class ConditionalVAE(BaseVAE):
                                                             output_padding=1),
                                          nn.BatchNorm2d(hidden_dims[-1]),
                                          nn.LeakyReLU(),
-                                         nn.Conv2d(hidden_dims[-1], out_channels=3,
+                                         nn.Conv2d(hidden_dims[-1], out_channels=1,
                                                    kernel_size=3, padding=1),
                                          nn.Tanh())
 
@@ -213,6 +213,8 @@ if __name__ == "__main__":
 
     cvae = ConditionalVAE(1, 52, 32)
     out = cvae(image, label)
+    output_img = out[0]
+    print(output_img.size())
     losses = cvae.loss_function(*out)
     for k, v in losses.items():
         print(k, v)
