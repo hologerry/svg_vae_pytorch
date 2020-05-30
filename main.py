@@ -36,7 +36,7 @@ def train_image_vae(opts):
     #                  num_categories=opts.num_categories, base_depth=opts.base_depth,
     #                  bottleneck_bits=opts.bottleneck_bits, free_bits=opts.free_bits,
     #                  kl_beta=opts.kl_beta, mode=opts.mode)
-    model = ConditionalVAE(in_channels=opts.in_channel, num_classes=40, latent_dim=opts.bottleneck_bits, kl_beta=opts.kl_beta)
+    model = ConditionalVAE(in_channels=3, num_classes=40, latent_dim=opts.bottleneck_bits, kl_beta=opts.kl_beta)
 
     if torch.cuda.is_available() and opts.multi_gpu:
         model = nn.DataParallel(model)
