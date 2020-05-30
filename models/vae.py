@@ -181,7 +181,7 @@ class ConditionalVAE(BaseVAE):
         # log_var = args[3]
 
         # kld_weight = self.kl_beta  # Account for the minibatch samples from the dataset
-        recons_loss = F.mse_loss(recons, input)
+        recons_loss = F.l1_loss(recons, input)
         # assert not torch.isnan(mu).any()
         # print("mu max", torch.max(mu))
         # assert not torch.isnan(log_var).any()
@@ -201,9 +201,9 @@ class ConditionalVAE(BaseVAE):
         # assert not torch.isnan(kld_loss).any()
 
         # loss = recons_loss + kld_weight * kld_loss
-        loss = recons_loss
+        # loss = recons_loss
         # return {'loss': loss, 'Reconstruction_Loss': recons_loss, 'KLD': kld_loss}  # KLD shoud be -kld_loss, for convenience
-        return {'loss': loss, 'Reconstruction_Loss': recons_loss, 'KLD': torch.tensor(0.0, device=input.device)}
+        return {'loss': recons_loss, 'Reconstruction_Loss': recons_loss, 'KLD': torch.tensor(0.0, device=input.device)}
 
     def sample(self,
                num_samples: int,
