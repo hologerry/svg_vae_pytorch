@@ -41,7 +41,7 @@ def get_parser_basic():
 def get_parser_image_vae():
     parser = get_parser_basic()
     # experiment
-    parser.add_argument('--batch_size', type=int, default=64, help='image vae batch_size')
+    parser.add_argument('--batch_size', type=int, default=256, help='image vae batch_size')
     parser.add_argument('--init_epoch', type=int, default=0, help='init epoch')
     parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs')
     parser.add_argument('--lr', type=float, default=0.005, help='learning rate')
