@@ -113,9 +113,9 @@ class ConditionalVAE(BaseVAE):
         :param input: (Tensor) Input tensor to encoder [N x C x H x W]
         :return: (Tensor) List of latent codes
         """
-        # assert not torch.isnan(input).any()
+        assert not torch.isnan(input).any()
         result = self.encoder(input)
-        # assert not torch.isnan(result).any()
+        assert not torch.isnan(result).any()
         result = torch.flatten(result, start_dim=1)
 
         # Split the result into mu and var components
@@ -149,15 +149,15 @@ class ConditionalVAE(BaseVAE):
     def forward(self, input: Tensor, label: Tensor) -> List[Tensor]:
         y = label.float()
         # print(y)
-        # assert not torch.isnan(y).any()
+        assert not torch.isnan(y).any()
         # print("embed_class weight", self.embed_class.weight)
         # print("embed_class bias", self.embed_class.bias)
         embedded_class = self.embed_class(y)
         # print(embedded_class)
-        # assert not torch.isnan(embedded_class).any()
+        assert not torch.isnan(embedded_class).any()
         embedded_class = embedded_class.view(-1, self.img_size, self.img_size).unsqueeze(1)
         embedded_input = self.embed_data(input)
-        # assert not torch.isnan(embedded_input).any()
+        assert not torch.isnan(embedded_input).any()
 
         x = torch.cat([embedded_input, embedded_class], dim=1)
         mu, log_var = self.encode(x)
@@ -182,23 +182,23 @@ class ConditionalVAE(BaseVAE):
 
         kld_weight = self.kl_beta  # Account for the minibatch samples from the dataset
         recons_loss = F.mse_loss(recons, input)
-        # assert not torch.isnan(mu).any()
+        assert not torch.isnan(mu).any()
         # print("mu max", torch.max(mu))
-        # assert not torch.isnan(log_var).any()
+        assert not torch.isnan(log_var).any()
         mu2 = mu ** 2
-        # assert not torch.isnan(mu2).any()
+        assert not torch.isnan(mu2).any()
         # print("mu2 max", torch.max(mu2))
         # print("logvar max", torch.max(log_var))
         log_var_exp = log_var.exp()
-        # assert not torch.isnan(log_var_exp).any()
+        assert not torch.isnan(log_var_exp).any()
         # print("log var exp max", torch.max(log_var_exp))
         term1 = 1 + log_var - mu2 - log_var_exp
-        # assert not torch.isnan(term1).any()
+        assert not torch.isnan(term1).any()
         # print("term1 max", torch.max(term1))
         kld_loss = torch.mean(-0.5 * torch.sum(term1, dim=1), dim=0)
         # kld_loss = torch.mean(-0.5 * torch.mean(term1, dim=1), dim=0)
         # print("kld_loss max", torch.max(kld_loss))
-        # assert not torch.isnan(kld_loss).any()
+        assert not torch.isnan(kld_loss).any()
 
         loss = recons_loss + kld_weight * kld_loss
         # loss = recons_loss
