@@ -67,7 +67,7 @@ class ConditionalVAE(BaseVAE):
             modules.append(nn.Sequential(nn.Conv2d(in_channels, out_channels=h_dim,
                                                    kernel_size=3, stride=2, padding=1),
                                          nn.BatchNorm2d(h_dim),
-                                         nn.LeakyReLU()))
+                                         nn.ReLU()))
             in_channels = h_dim
 
         self.encoder = nn.Sequential(*modules)
@@ -90,7 +90,7 @@ class ConditionalVAE(BaseVAE):
                                                             padding=1,
                                                             output_padding=1),
                                          nn.BatchNorm2d(hidden_dims[i + 1]),
-                                         nn.LeakyReLU()))
+                                         nn.ReLU()))
 
         self.decoder = nn.Sequential(*modules)
 
@@ -101,7 +101,7 @@ class ConditionalVAE(BaseVAE):
                                                             padding=1,
                                                             output_padding=1),
                                          nn.BatchNorm2d(hidden_dims[-1]),
-                                         nn.LeakyReLU(),
+                                         nn.ReLU(),
                                          nn.Conv2d(hidden_dims[-1], out_channels=1,
                                                    kernel_size=3, padding=1),
                                          nn.Tanh())
