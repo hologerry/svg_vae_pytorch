@@ -120,12 +120,12 @@ class ConditionalVAE(BaseVAE):
 
         # Split the result into mu and var components
         # of the latent Gaussian distribution
-        # mu = self.fc_mu(result)
-        # log_var = self.fc_var(result)
-        z = self.fc_z(result)
+        mu = self.fc_mu(result)
+        log_var = self.fc_var(result)
+        # z = self.fc_z(result)
 
-        # return [mu, log_var]
-        return z
+        return [mu, log_var]
+        # return z
 
     def decode(self, z: Tensor) -> Tensor:
         result = self.decoder_input(z)
@@ -160,50 +160,50 @@ class ConditionalVAE(BaseVAE):
         # assert not torch.isnan(embedded_input).any()
 
         x = torch.cat([embedded_input, embedded_class], dim=1)
-        # mu, log_var = self.encode(x)
-        z = self.encode(x)
+        mu, log_var = self.encode(x)
+        # z = self.encode(x)
 
-        # z = self.reparameterize(mu, log_var)
+        z = self.reparameterize(mu, log_var)
         z = torch.cat([z, y], dim=1)
-        # return [self.decode(z), input, z, mu, log_var]
-        return [self.decode(z), input, z]
+        return [self.decode(z), input, z, mu, log_var]
+        # return [self.decode(z), input, z]
 
     def loss_function(self,
                       recons,
                       input,
                       z,
-                      # mu,
-                      # log_var,
+                      mu,
+                      log_var,
                       **kwargs) -> dict:
         # recons = args[0]
         # input = args[1]
         # mu = args[2]
         # log_var = args[3]
 
-        # kld_weight = self.kl_beta  # Account for the minibatch samples from the dataset
-        recons_loss = F.l1_loss(recons, input)
+        kld_weight = self.kl_beta  # Account for the minibatch samples from the dataset
+        recons_loss = F.mse_loss(recons, input)
         # assert not torch.isnan(mu).any()
         # print("mu max", torch.max(mu))
         # assert not torch.isnan(log_var).any()
-        # mu2 = mu ** 2
+        mu2 = mu ** 2
         # assert not torch.isnan(mu2).any()
         # print("mu2 max", torch.max(mu2))
         # print("logvar max", torch.max(log_var))
-        # log_var_exp = log_var.exp()
+        log_var_exp = log_var.exp()
         # assert not torch.isnan(log_var_exp).any()
         # print("log var exp max", torch.max(log_var_exp))
-        # term1 = 1 + log_var - mu2 - log_var_exp
+        term1 = 1 + log_var - mu2 - log_var_exp
         # assert not torch.isnan(term1).any()
         # print("term1 max", torch.max(term1))
-        # kld_loss = torch.mean(-0.5 * torch.sum(term1, dim=1), dim=0)
+        kld_loss = torch.mean(-0.5 * torch.sum(term1, dim=1), dim=0)
         # kld_loss = torch.mean(-0.5 * torch.mean(term1, dim=1), dim=0)
         # print("kld_loss max", torch.max(kld_loss))
         # assert not torch.isnan(kld_loss).any()
 
-        # loss = recons_loss + kld_weight * kld_loss
+        loss = recons_loss + kld_weight * kld_loss
         # loss = recons_loss
-        # return {'loss': loss, 'Reconstruction_Loss': recons_loss, 'KLD': kld_loss}  # KLD shoud be -kld_loss, for convenience
-        return {'loss': recons_loss, 'Reconstruction_Loss': recons_loss, 'KLD': torch.tensor(0.0, device=input.device)}
+        return {'loss': loss, 'Reconstruction_Loss': recons_loss, 'KLD': kld_loss}  # KLD shoud be -kld_loss, for convenience
+        # return {'loss': recons_loss, 'Reconstruction_Loss': recons_loss, 'KLD': torch.tensor(0.0, device=input.device)}
 
     def sample(self,
                num_samples: int,

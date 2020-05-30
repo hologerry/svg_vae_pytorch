@@ -8,7 +8,7 @@ from torchvision.datasets import CelebA
 
 
 class SVGDataset(data.Dataset):
-    def __init__(self, root_path, max_seq_len=51, seq_feature_dim=10, mode='train'):
+    def __init__(self, root_path, max_seq_len=51, seq_feature_dim=10, transform=None, mode='train'):
         super().__init__()
         self.mode = mode
         # self.pkl_path = os.path.join(root_path, self.mode, f'{mode}_all.pkl')
@@ -20,7 +20,7 @@ class SVGDataset(data.Dataset):
         print(f"Finished loading")
         self.max_seq_len = max_seq_len
         self.feature_dim = seq_feature_dim
-        self.trans = T.Normalize([0.5], [0.5])
+        self.trans = transform
 
     def __getitem__(self, index):
         cur_glyph = self.all_glyphs[index]
@@ -39,10 +39,11 @@ class SVGDataset(data.Dataset):
 
 
 def get_loader(root_path, max_seq_len, seq_feature_dim, batch_size, mode='train'):
-    # dataset = SVGDataset(root_path, max_seq_len, seq_feature_dim, mode)
+    SetRange = T.Lambda(lambda X: 2 * X - 1.)  # convert [0, 1] -> [-1, 1]
+    # transform = T.Compose([SetRange])
+    # dataset = SVGDataset(root_path, max_seq_len, seq_feature_dim, transform, mode)
 
     # Test celeba
-    SetRange = T.Lambda(lambda X: 2 * X - 1.)  # convert [0, 1] -> [-1, 1]
     transform = T.Compose([T.RandomHorizontalFlip(), T.CenterCrop(148), T.Resize(64), T.ToTensor(), SetRange])
     dataset = CelebA(root='/home1/gaoy/celeba_dataset', split=mode, transform=transform, download=False)
     dataloader = data.DataLoader(dataset, batch_size, shuffle=(mode == 'train'), num_workers=batch_size)
