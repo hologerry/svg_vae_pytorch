@@ -145,12 +145,12 @@ class ConditionalVAE(BaseVAE):
 
     def forward(self, input: Tensor, label: Tensor) -> List[Tensor]:
         y = label.float()
-        print(y)
+        # print(y)
         assert not torch.isnan(y).any()
-        print("embed_class weight", self.embed_class.weight)
-        print("embed_class bias", self.embed_class.bias)
+        # print("embed_class weight", self.embed_class.weight)
+        # print("embed_class bias", self.embed_class.bias)
         embedded_class = self.embed_class(y)
-        print(embedded_class)
+        # print(embedded_class)
         assert not torch.isnan(embedded_class).any()
         embedded_class = embedded_class.view(-1, self.img_size, self.img_size).unsqueeze(1)
         embedded_input = self.embed_data(input)
@@ -178,18 +178,23 @@ class ConditionalVAE(BaseVAE):
         kld_weight = self.kl_beta  # Account for the minibatch samples from the dataset
         recons_loss = F.mse_loss(recons, input)
         assert not torch.isnan(mu).any()
+        print(torch.max(mu))
         assert not torch.isnan(log_var).any()
         mu2 = mu ** 2
         assert not torch.isnan(mu2).any()
+        print(torch.max(mu2))
         log_var_exp = log_var.exp()
         assert not torch.isnan(log_var_exp).any()
+        print(torch.max(log_var_exp))
         term1 = 1 + log_var - mu2 - log_var_exp
         assert not torch.isnan(term1).any()
+        print(torch.max(term1))
         kld_loss = torch.mean(-0.5 * torch.sum(term1, dim=1), dim=0)
+        print(torch.max(kld_loss))
         assert not torch.isnan(kld_loss).any()
 
         loss = recons_loss + kld_weight * kld_loss
-        return {'loss': loss, 'Reconstruction_Loss': recons_loss, 'KLD': -kld_loss}
+        return {'loss': loss, 'Reconstruction_Loss': recons_loss, 'KLD': kld_loss}  # KLD shoud be -kld_loss, for convenience
 
     def sample(self,
                num_samples: int,

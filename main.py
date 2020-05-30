@@ -41,6 +41,8 @@ def train_image_vae(opts):
     if torch.cuda.is_available() and opts.multi_gpu:
         model = nn.DataParallel(model)
     model = model.to(device)
+    print("init", model.embed_class.weight)
+    print("init", model.embed_class.bias)
 
     optimizer = Adam(model.parameters(), lr=opts.lr, betas=(opts.beta1, opts.beta2), eps=opts.eps, weight_decay=opts.weight_decay)
 
@@ -85,7 +87,7 @@ def train_image_vae(opts):
             message = (
                 f"Epoch: {epoch}/{opts.n_epochs}, Batch: {idx}/{len(train_loader)}, "
                 f"Loss: {loss.item():.6f}, "
-                f"rec_loss: {rec_loss.item():.6f}"
+                f"rec_loss: {rec_loss.item():.6f}, "
                 f"b_loss: {b_loss.item():.6f}, "
                 # f"training_loss: {training_loss.item():.6f}, "
                 # f"img_rec_loss: {img_rec_loss.item():.6f}"
