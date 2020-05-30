@@ -11,8 +11,8 @@ class SVGDataset(data.Dataset):
     def __init__(self, root_path, max_seq_len=51, seq_feature_dim=10, transform=None, mode='train'):
         super().__init__()
         self.mode = mode
-        # self.pkl_path = os.path.join(root_path, self.mode, f'{mode}_all.pkl')
-        self.pkl_path = os.path.join(root_path, self.mode, f'{mode}_0000-0047.pkl')
+        self.pkl_path = os.path.join(root_path, self.mode, f'{mode}_all.pkl')
+        # self.pkl_path = os.path.join(root_path, self.mode, f'{mode}_0000-0047.pkl')
         pkl_f = open(self.pkl_path, 'rb')
         print(f"Loading {self.pkl_path} pkl file ...")
         self.all_glyphs = pickle.load(pkl_f)
