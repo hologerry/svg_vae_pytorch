@@ -168,8 +168,14 @@ class ConditionalVAE(BaseVAE):
 
         kld_weight = self.kl_beta  # Account for the minibatch samples from the dataset
         recons_loss = F.mse_loss(recons, input)
-
-        kld_loss = torch.mean(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim=1), dim=0)
+        mu2 = mu ** 2
+        assert not torch.isnan(mu2).any()
+        log_var_exp = log_var.exp()
+        assert not torch.isnan(log_var_exp).any()
+        term1 = 1 + log_var - mu2 - log_var_exp
+        assert not torch.isnan(term1).any()
+        kld_loss = torch.mean(-0.5 * torch.sum(term1, dim=1), dim=0)
+        assert not torch.isnan(kld_loss).any()
 
         loss = recons_loss + kld_weight * kld_loss
         return {'loss': loss, 'Reconstruction_Loss': recons_loss, 'KLD': -kld_loss}

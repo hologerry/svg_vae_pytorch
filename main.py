@@ -80,7 +80,7 @@ def train_image_vae(opts):
             loss.backward()
             optimizer.step()
 
-            batches_done = epoch * len(train_loader) + idx
+            batches_done = epoch * len(train_loader) + idx + 1
 
             message = (
                 f"Epoch: {epoch}/{opts.n_epochs}, Batch: {idx}/{len(train_loader)}, "
