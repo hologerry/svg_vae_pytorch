@@ -36,7 +36,7 @@ def train_image_vae(opts):
     #                  num_categories=opts.num_categories, base_depth=opts.base_depth,
     #                  bottleneck_bits=opts.bottleneck_bits, free_bits=opts.free_bits,
     #                  kl_beta=opts.kl_beta, mode=opts.mode)
-    model = ConditionalVAE(in_channels=opts.in_channel, num_classes=opts.num_categories, latent_dim=opts.bottleneck_bits, kl_beta=opts.kl_beta)
+    model = ConditionalVAE(in_channels=opts.in_channel, num_classes=40, latent_dim=opts.bottleneck_bits, kl_beta=opts.kl_beta)
 
     if torch.cuda.is_available() and opts.multi_gpu:
         model = nn.DataParallel(model)
@@ -49,10 +49,11 @@ def train_image_vae(opts):
 
     for epoch in range(opts.init_epoch, opts.n_epochs):
         for idx, data in enumerate(train_loader):
-            input_image = data['rendered'].to(device)
+            # input_image = data['rendered'].to(device)
             # target_image = input_image.detach().clone()
-            target_clss = data['class'].to(device)
-            target_clss = F.one_hot(target_clss, num_classes=opts.num_categories).squeeze(dim=1)
+            # target_clss = data['class'].to(device)
+            # target_clss = F.one_hot(target_clss, num_classes=opts.num_categories).squeeze(dim=1)
+            input_image, target_clss = data
             output = model(input_image, target_clss)
 
             # ImageVAE
@@ -113,10 +114,11 @@ def train_image_vae(opts):
                     for val_idx, val_data in enumerate(val_loader):
                         if val_idx >= 20:
                             break
-                        val_input_image = val_data['rendered'].to(device)
+                        # val_input_image = val_data['rendered'].to(device)
                         # val_target_image = val_input_image.detach().clone()
-                        val_target_clss = val_data['class'].to(device)
-                        val_target_clss = F.one_hot(val_target_clss, num_classes=opts.num_categories).squeeze(dim=1)
+                        # val_target_clss = val_data['class'].to(device)
+                        # val_target_clss = F.one_hot(val_target_clss, num_classes=opts.num_categories).squeeze(dim=1)
+                        val_input_image, val_target_clss = val_data
                         val_output = model(val_input_image, val_target_clss)
 
                         val_output_image = val_output[0]

@@ -28,7 +28,7 @@ def get_parser_basic():
     parser.add_argument('--data_root', type=str, default='svg_vae_data/glyph_pkl_dataset')
     parser.add_argument('--ckpt_freq', type=int, default=2, help='save checkpoint frequency of epoch')
     parser.add_argument('--sample_freq', type=int, default=100, help='sample train output of steps')
-    parser.add_argument('--val_freq', type=int, default=200, help='sample validate output of steps')
+    parser.add_argument('--val_freq', type=int, default=1000, help='sample validate output of steps')
     parser.add_argument('--beta1', type=float, default=0.85, help='beta1 of Adam optimizer')
     parser.add_argument('--beta2', type=float, default=0.997, help='beta2 of Adam optimizer')
     parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
