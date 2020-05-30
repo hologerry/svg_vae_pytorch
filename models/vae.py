@@ -112,7 +112,9 @@ class ConditionalVAE(BaseVAE):
         :param input: (Tensor) Input tensor to encoder [N x C x H x W]
         :return: (Tensor) List of latent codes
         """
+        assert not torch.isnan(input).any()
         result = self.encoder(input)
+        assert not torch.isnan(result).any()
         result = torch.flatten(result, start_dim=1)
 
         # Split the result into mu and var components
@@ -143,9 +145,12 @@ class ConditionalVAE(BaseVAE):
 
     def forward(self, input: Tensor, label: Tensor) -> List[Tensor]:
         y = label.float()
+        assert not torch.isnan(y).any()
         embedded_class = self.embed_class(y)
+        assert not torch.isnan(embedded_class).any()
         embedded_class = embedded_class.view(-1, self.img_size, self.img_size).unsqueeze(1)
         embedded_input = self.embed_data(input)
+        assert not torch.isnan(embedded_input).any()
 
         x = torch.cat([embedded_input, embedded_class], dim=1)
         mu, log_var = self.encode(x)
@@ -168,6 +173,8 @@ class ConditionalVAE(BaseVAE):
 
         kld_weight = self.kl_beta  # Account for the minibatch samples from the dataset
         recons_loss = F.mse_loss(recons, input)
+        assert not torch.isnan(mu).any()
+        assert not torch.isnan(log_var).any()
         mu2 = mu ** 2
         assert not torch.isnan(mu2).any()
         log_var_exp = log_var.exp()
