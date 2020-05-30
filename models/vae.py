@@ -95,7 +95,7 @@ class ConditionalVAE(BaseVAE):
         self.decoder = nn.Sequential(*modules)
 
         self.final_layer = nn.Sequential(nn.ConvTranspose2d(hidden_dims[-1],
-                                                            hidden_dims[-1],
+                                                            1,
                                                             kernel_size=3,
                                                             stride=2,
                                                             padding=1,
