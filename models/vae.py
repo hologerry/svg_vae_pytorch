@@ -101,9 +101,9 @@ class ConditionalVAE(BaseVAE):
                                                             padding=1,
                                                             output_padding=1),
                                          # nn.BatchNorm2d(hidden_dims[-1]),
-                                         nn.ReLU(),
-                                         nn.Conv2d(hidden_dims[-1], out_channels=1,
-                                                   kernel_size=3, padding=1),
+                                         #  nn.ReLU(),
+                                         #  nn.Conv2d(hidden_dims[-1], out_channels=1,
+                                         #            kernel_size=3, padding=1),
                                          nn.Tanh())
 
     def encode(self, input: Tensor) -> List[Tensor]:
