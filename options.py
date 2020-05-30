@@ -31,7 +31,6 @@ def get_parser_basic():
     parser.add_argument('--val_freq', type=int, default=1000, help='sample validate output of steps')
     parser.add_argument('--beta1', type=float, default=0.85, help='beta1 of Adam optimizer')
     parser.add_argument('--beta2', type=float, default=0.997, help='beta2 of Adam optimizer')
-    parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
     parser.add_argument('--eps', type=float, default=1e-6, help='Adam epsilon')
     parser.add_argument('--weight_decay', type=float, default=0.0, help='image vae weight decay')
     parser.add_argument('--tboard', type=bool, default=True, help='whether use tensorboard to visulize loss')
@@ -45,6 +44,7 @@ def get_parser_image_vae():
     parser.add_argument('--batch_size', type=int, default=64, help='image vae batch_size')
     parser.add_argument('--init_epoch', type=int, default=0, help='init epoch')
     parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs')
+    parser.add_argument('--lr', type=float, default=0.005, help='learning rate')
     # model_name
     parser.add_argument('--hidden_size', type=int, default=32, help='image vae hidden_size, not used')
     parser.add_argument('--base_depth', type=int, default=32, help='image vae conv layer base depth')
@@ -66,6 +66,7 @@ def get_parser_svg_decoder():
     parser.add_argument('--hidden_size', type=int, default=1024, help='svg decoder hidden size')
     parser.add_argument('--num_hidden_layers', type=int, default=4, help='svg decoder number of hidden layers')
     parser.add_argument('--force_full_predict', type=bool, default=True, help='')
+    parser.add_argument('--lr', type=float, default=0.005, help='learning rate')
     # parser.add_argument('--dropout', type=float, default=0.5, help='svg decoder dropout layer probability')
     parser.add_argument('--learning_rate_warmup_steps', type=int, default=1e5, help='')
     parser.add_argument('--vocab_size', type=int, default=None, help='')

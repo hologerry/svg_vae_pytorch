@@ -45,7 +45,7 @@ class ConditionalVAE(BaseVAE):
                  latent_dim: int,
                  hidden_dims: List = None,
                  img_size: int = 64,
-                 kl_beta: float = 1.0,
+                 kl_beta: float = 0.00001,
                  **kwargs) -> None:
         super(ConditionalVAE, self).__init__()
 

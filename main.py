@@ -31,7 +31,7 @@ def train_image_vae(opts):
 
     train_loader = get_loader(opts.data_root, opts.max_seq_len, opts.seq_feature_dim, opts.batch_size, opts.mode)
     val_loader = get_loader(opts.data_root, opts.max_seq_len, opts.seq_feature_dim, 1, 'test')
-
+    opts.kl_beta = 1.0 / len(train_loader)  # This is from PyTorch-VAE
     # model = ImageVAE(input_channels=opts.in_channel, output_channels=opts.out_channel,
     #                  num_categories=opts.num_categories, base_depth=opts.base_depth,
     #                  bottleneck_bits=opts.bottleneck_bits, free_bits=opts.free_bits,
