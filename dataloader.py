@@ -4,7 +4,7 @@ import pickle
 import torch
 import torch.utils.data as data
 import torchvision.transforms as T
-from torchvision.datasets import CelebA
+# from torchvision.datasets import CelebA
 
 
 class SVGDataset(data.Dataset):
@@ -40,12 +40,12 @@ class SVGDataset(data.Dataset):
 
 def get_loader(root_path, max_seq_len, seq_feature_dim, batch_size, mode='train'):
     SetRange = T.Lambda(lambda X: 2 * X - 1.)  # convert [0, 1] -> [-1, 1]
-    # transform = T.Compose([SetRange])
-    # dataset = SVGDataset(root_path, max_seq_len, seq_feature_dim, transform, mode)
+    transform = T.Compose([SetRange])
+    dataset = SVGDataset(root_path, max_seq_len, seq_feature_dim, transform, mode)
 
     # Test celeba
-    transform = T.Compose([T.RandomHorizontalFlip(), T.CenterCrop(148), T.Resize(64), T.ToTensor(), SetRange])
-    dataset = CelebA(root='/home1/gaoy/celeba_dataset', split=mode, transform=transform, download=False)
+    # transform = T.Compose([T.RandomHorizontalFlip(), T.CenterCrop(148), T.Resize(64), T.ToTensor(), SetRange])
+    # dataset = CelebA(root='/home1/gaoy/celeba_dataset', split=mode, transform=transform, download=False)
     dataloader = data.DataLoader(dataset, batch_size, shuffle=(mode == 'train'), num_workers=batch_size)
 
     return dataloader

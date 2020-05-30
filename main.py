@@ -49,13 +49,13 @@ def train_image_vae(opts):
 
     for epoch in range(opts.init_epoch, opts.n_epochs):
         for idx, data in enumerate(train_loader):
-            # input_image = data['rendered'].to(device)
+            input_image = data['rendered'].to(device)
             # target_image = input_image.detach().clone()
-            # target_clss = data['class'].to(device)
-            # target_clss = F.one_hot(target_clss, num_classes=opts.num_categories).squeeze(dim=1)
-            input_image, target_clss = data
-            input_image = input_image.to(device)
-            target_clss = target_clss.to(device)
+            target_clss = data['class'].to(device)
+            target_clss = F.one_hot(target_clss, num_classes=opts.num_categories).squeeze(dim=1)
+            # input_image, target_clss = data
+            # input_image = input_image.to(device)
+            # target_clss = target_clss.to(device)
             output = model(input_image, target_clss)
 
             # ImageVAE
@@ -116,12 +116,12 @@ def train_image_vae(opts):
                     for val_idx, val_data in enumerate(val_loader):
                         if val_idx >= 20:
                             break
-                        # val_input_image = val_data['rendered'].to(device)
+                        val_input_image = val_data['rendered'].to(device)
                         # val_target_image = val_input_image.detach().clone()
-                        # val_target_clss = val_data['class'].to(device)
-                        # val_target_clss = F.one_hot(val_target_clss, num_classes=opts.num_categories).squeeze(dim=1)
-                        val_input_image, val_target_clss = val_data
-                        val_input_image = val_input_image.to(device)
+                        val_target_clss = val_data['class'].to(device)
+                        val_target_clss = F.one_hot(val_target_clss, num_classes=opts.num_categories).squeeze(dim=1)
+                        # val_input_image, val_target_clss = val_data
+                        # val_input_image = val_input_image.to(device)
                         val_target_clss = val_target_clss.to(device)
 
                         val_output = model(val_input_image, val_target_clss)
