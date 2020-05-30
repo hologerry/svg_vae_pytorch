@@ -145,8 +145,10 @@ class ConditionalVAE(BaseVAE):
 
     def forward(self, input: Tensor, label: Tensor) -> List[Tensor]:
         y = label.float()
+        print(y)
         assert not torch.isnan(y).any()
         embedded_class = self.embed_class(y)
+        print(embedded_class)
         assert not torch.isnan(embedded_class).any()
         embedded_class = embedded_class.view(-1, self.img_size, self.img_size).unsqueeze(1)
         embedded_input = self.embed_data(input)
