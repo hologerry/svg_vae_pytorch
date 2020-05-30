@@ -178,17 +178,18 @@ class ConditionalVAE(BaseVAE):
         kld_weight = self.kl_beta  # Account for the minibatch samples from the dataset
         recons_loss = F.mse_loss(recons, input)
         assert not torch.isnan(mu).any()
-        print(torch.max(mu))
+        print("mu max", torch.max(mu))
         assert not torch.isnan(log_var).any()
         mu2 = mu ** 2
         assert not torch.isnan(mu2).any()
-        print(torch.max(mu2))
+        print("mu2 max", torch.max(mu2))
+        print("logvar max", torch.max(log_var))
         log_var_exp = log_var.exp()
         assert not torch.isnan(log_var_exp).any()
-        print(torch.max(log_var_exp))
+        print("log var exp max", torch.max(log_var_exp))
         term1 = 1 + log_var - mu2 - log_var_exp
         assert not torch.isnan(term1).any()
-        print(torch.max(term1))
+        print("term1 max", torch.max(term1))
         kld_loss = torch.mean(-0.5 * torch.sum(term1, dim=1), dim=0)
         print(torch.max(kld_loss))
         assert not torch.isnan(kld_loss).any()
