@@ -68,7 +68,10 @@ def train_image_vae(opts):
 
             # ConditionalVAE
             output_image = output[0]
-            losses = model.module.loss_function(*output)
+            if torch.cuda.is_available() and opts.multi_gpu:
+                losses = model.module.loss_function(*output)
+            else:
+                losses = model.loss_function(*output)
             loss = losses['loss']
             rec_loss = losses['Reconstruction_Loss']
             b_loss = losses['KLD']
@@ -117,7 +120,10 @@ def train_image_vae(opts):
                         val_output = model(val_input_image, val_target_clss)
 
                         val_output_image = val_output[0]
-                        val_losses = model.module.loss_function(*val_output)
+                        if torch.cuda.is_available() and opts.multi_gpu:
+                            val_losses = model.module.loss_function(*val_output)
+                        else:
+                            val_losses = model.loss_function(*val_output)
 
                         val_loss += val_losses['loss'].item()
                         val_img_rec_loss += val_losses['Reconstruction_Loss'].mean()
@@ -148,7 +154,10 @@ def train_image_vae(opts):
 
         if epoch % opts.ckpt_freq == 0:
             model_file = os.path.join(ckpt_dir, f"{opts.model_name}_{epoch}.pth")
-            torch.save(model.module.state_dict(), model_file)
+            if torch.cuda.is_available() and opts.multi_gpu:
+                torch.save(model.module.state_dict(), model_file)
+            else:
+                torch.save(model.state_dict(), model_file)
 
     logfile.close()
     val_logfile.close()

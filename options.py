@@ -23,7 +23,7 @@ def get_parser_basic():
                         help='feature dim (like vocab size) of one step of sequence feature')
     # experiment related
     parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])
-    parser.add_argument('--multi_gpu', type=bool, default=True)
+    parser.add_argument('--multi_gpu', type=bool, default=False)
     parser.add_argument('--experiment_name', type=str, default='experiment')
     parser.add_argument('--data_root', type=str, default='svg_vae_data/glyph_pkl_dataset')
     parser.add_argument('--ckpt_freq', type=int, default=2, help='save checkpoint frequency of epoch')
