@@ -147,6 +147,8 @@ class ConditionalVAE(BaseVAE):
         y = label.float()
         print(y)
         assert not torch.isnan(y).any()
+        print("embed_class weight", self.embed_class.weight)
+        print("embed_class bias", self.embed_class.bias)
         embedded_class = self.embed_class(y)
         print(embedded_class)
         assert not torch.isnan(embedded_class).any()
