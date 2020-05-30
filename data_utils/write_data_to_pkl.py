@@ -144,11 +144,11 @@ def cal_mean_stddev(opts):
 def main():
     parser = argparse.ArgumentParser(description="LMDB creation")
     parser.add_argument('--sfd_path', type=str, default='svg_vae_data/sfd_font_glyphs_mp')
-    parser.add_argument("--output_path", type=str, default='svg_vae_data/glyph_pkl_dataset',
+    parser.add_argument("--output_path", type=str, default='svg_vae_data/glyph_pkl_dataset_10',
                         help="Path to write the database to")
     parser.add_argument("--split", type=str, default='test')
     parser.add_argument("--log_dir", type=str, default='svg_vae_data/create_pkl_log/')
-    parser.add_argument("--phase", type=int, default=3, choices=[0, 1, 2, 3],
+    parser.add_argument("--phase", type=int, default=0, choices=[0, 1, 2, 3],
                         help="0 all, 1 create db, 2 combine_pkl_files, 3 cal stddev")
 
     opts = parser.parse_args()
@@ -160,7 +160,7 @@ def main():
 
     if not os.path.exists(opts.log_dir):
         os.makedirs(opts.log_dir)
-    opts.num_processes = mp.cpu_count() - 2
+    opts.num_processes = 9  # will be +1
     if opts.phase <= 1:
         create_db(opts)
     if opts.phase <= 2:
