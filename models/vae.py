@@ -190,8 +190,9 @@ class ConditionalVAE(BaseVAE):
         term1 = 1 + log_var - mu2 - log_var_exp
         assert not torch.isnan(term1).any()
         print("term1 max", torch.max(term1))
-        kld_loss = torch.mean(-0.5 * torch.sum(term1, dim=1), dim=0)
-        print(torch.max(kld_loss))
+        # kld_loss = torch.mean(-0.5 * torch.sum(term1, dim=1), dim=0)
+        kld_loss = torch.mean(-0.5 * torch.mean(term1, dim=1), dim=0)
+        print("kld_loss max", torch.max(kld_loss))
         assert not torch.isnan(kld_loss).any()
 
         loss = recons_loss + kld_weight * kld_loss
