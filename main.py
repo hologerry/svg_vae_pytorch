@@ -54,6 +54,8 @@ def train_image_vae(opts):
             # target_clss = data['class'].to(device)
             # target_clss = F.one_hot(target_clss, num_classes=opts.num_categories).squeeze(dim=1)
             input_image, target_clss = data
+            input_image = input_image.to(device)
+            target_clss = target_clss.to(device)
             output = model(input_image, target_clss)
 
             # ImageVAE
@@ -119,6 +121,9 @@ def train_image_vae(opts):
                         # val_target_clss = val_data['class'].to(device)
                         # val_target_clss = F.one_hot(val_target_clss, num_classes=opts.num_categories).squeeze(dim=1)
                         val_input_image, val_target_clss = val_data
+                        val_input_image = val_input_image.to(device)
+                        val_target_clss = val_target_clss.to(device)
+
                         val_output = model(val_input_image, val_target_clss)
 
                         val_output_image = val_output[0]
