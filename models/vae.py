@@ -172,8 +172,8 @@ class ConditionalVAE(BaseVAE):
                       recons,
                       input,
                       z,
-                      mu,
-                      log_var,
+                      # mu,
+                      # log_var,
                       **kwargs) -> dict:
         # recons = args[0]
         # input = args[1]
