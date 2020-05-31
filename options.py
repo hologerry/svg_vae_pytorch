@@ -60,7 +60,7 @@ def get_parser_image_vae():
 
 def get_parser_svg_decoder():
     parser = get_parser_basic()
-    parser.add_argument('--batch_size', type=int, defautl=128, help='svg decoder batch size')
+    parser.add_argument('--batch_size', type=int, default=128, help='svg decoder batch size')
     parser.add_argument('--init_epoch', type=int, default=0, help='init epoch')
     parser.add_argument('--n_epochs', type=int, default=40, help='number of epochs')
     parser.add_argument('--hidden_size', type=int, default=1024, help='svg decoder hidden size')
