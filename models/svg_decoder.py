@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
 
 import models.util_funcs as util_funcs
-from models.image_vae import ImageVAE
+from models.vae import ConditionalVAE
 
 
 class SVGLSTMDecoder(nn.Module):
@@ -216,6 +216,7 @@ class SVGMDNTop(nn.Module):
 
 
 if __name__ == "__main__":
+    from data_utils.svg_utils import convert_to_svg
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     batch_size = 2
@@ -231,14 +232,14 @@ if __name__ == "__main__":
 
     image = torch.randn((batch_size, 1, 64, 64)).to(device)
     clss = torch.randint(low=0, high=num_categories, size=(batch_size, 1), dtype=torch.long).to(device)
-
-    image_vae = ImageVAE(mode=mode).to(device)
+    clss = F.one_hot(clss, num_classes=num_categories).squeeze(dim=1)
+    image_vae = ConditionalVAE(1, num_categories, bottleneck_bits, mode=mode).to(device)
     svg_decoder = SVGLSTMDecoder(mode=mode).to(device)
     if sg_bottleneck:
         image_vae = image_vae.eval().to(device)
 
     vae_output = image_vae(image, clss)
-    sampled_bottleneck = vae_output['samp_b']
+    sampled_bottleneck = vae_output[2]
 
     trg = torch.randn((seq_len, batch_size, feature_dim)).to(device)  # [seq_len, batch_size, feature_dim]
     trg = util_funcs.shift_right(trg)
@@ -276,4 +277,11 @@ if __name__ == "__main__":
     if mode == 'train':
         svg_losses = mdn_top_layer.svg_loss(top_output, trg)
         mdn_loss, softmax_xent_loss = svg_losses['mdn_loss'], svg_losses['softmax_xent_loss']
-        # print(mdn_loss, softmax_xent_loss)
+        print(mdn_loss, softmax_xent_loss)
+
+    svg_decoder_output = top_output.detach().clone()
+    svg_decoder_output = svg_decoder_output.view(svg_decoder_output.size(1), svg_decoder_output.size(0), svg_decoder_output.size(2))  # batch first
+
+    output_svg = convert_to_svg(svg_decoder_output.numpy())
+
+    print(output_svg)

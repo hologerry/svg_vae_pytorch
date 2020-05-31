@@ -669,7 +669,14 @@ def _vector_to_cmd(vector, categorical=False, return_floats=False):
 
 
 ############## UTILS FOR CONVERTING SVGS/VECTORS TO IMAGES ###################
-def _create_image_conversion_fn(max_outputs, categorical=False):
+def convert_to_svg(decoder_output, categorical=False):
+    converted = []
+    for example in decoder_output:
+        converted.append(_vector_to_svg(example, True, categorical=categorical))
+    return np.array(converted)
+
+
+def create_image_conversion_fn(max_outputs, categorical=False):
     """Binds the number of outputs to the image conversion fn (to svg or png)."""
     def convert_to_svg(decoder_output):
         converted = []

@@ -14,7 +14,7 @@ from models.svg_decoder import SVGLSTMDecoder, SVGMDNTop
 from models import util_funcs
 from options import (get_parser_basic, get_parser_image_vae,
                      get_parser_svg_decoder)
-# from data_utils.svg_utils import _create_image_conversion_fn
+from data_utils.svg_utils import convert_to_svg
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -171,7 +171,7 @@ def train_image_vae(opts):
 def train_svg_decoder(opts):
     # pass
     exp_dir = os.path.join("experiments", opts.experiment_name)
-    # sample_dir = os.path.join(exp_dir, "samples")
+    sample_dir = os.path.join(exp_dir, "samples")
     ckpt_dir = os.path.join(exp_dir, "checkpoints")
     # res_dir = os.path.join(exp_dir, "results")
     log_dir = os.path.join(exp_dir, "logs")
@@ -233,6 +233,7 @@ def train_svg_decoder(opts):
 
             vae_output = image_vae(input_image, target_clss)
             sampled_bottleneck = vae_output[2]  # z
+            vae_output_image = vae_output[0]
             inpt = target_seq[0]
 
             init_state = svg_decoder.init_state_input(sampled_bottleneck)
@@ -258,7 +259,7 @@ def train_svg_decoder(opts):
             loss = mdn_loss + softmax_xent_loss
 
             optimizer.zero_grad()
-            loss.backward()
+            loss.backward(retain_graph=True)
             optimizer.step()
 
             batches_done = epoch * len(train_loader) + idx + 1
@@ -278,11 +279,17 @@ def train_svg_decoder(opts):
                 writer.add_scalar('Loss/mdn_loss', mdn_loss.item(), batches_done)
                 writer.add_scalar('Loss/softmax_xent_loss', softmax_xent_loss.item(), batches_done)
 
-            # TODO: save output svg
-            # if opts.sample_freq > 0 and batches_done % opts.sample_freq == 0:
-            #     img_sample = torch.cat((input_image.data, output_image.data, target_image.data), -2)
-            #     save_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}.png")
-            #     save_image(img_sample, save_file, nrow=8, normalize=True)
+            if opts.sample_freq > 0 and batches_done % opts.sample_freq == 0:
+                svg_decoder_output = top_output.detach().clone()
+                svg_decoder_output = svg_decoder_output.view(svg_decoder_output.size(1), svg_decoder_output.size(0), svg_decoder_output.size(2))  # batch first
+                output_svgs = convert_to_svg(svg_decoder_output.numpy())
+                for i, one_svg in enumerate(output_svgs):
+                    cur_svg_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_svg_{i}.svg")
+                    with open(cur_svg_file, 'w') as f:
+                        f.write(one_svg)
+                img_sample = torch.cat((input_image.data, vae_output_image.data), -2)
+                save_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_input_vae.png")
+                save_image(img_sample, save_file, nrow=8, normalize=True)
 
             if opts.val_freq > 0 and batches_done % opts.val_freq == 0:
                 # val_loss_value = 0.0
@@ -321,13 +328,16 @@ def train_svg_decoder(opts):
                         # val_mdn_loss, val_softmax_xent_loss = val_svg_losses['mdn_loss'], val_svg_losses['softmax_xent_loss']
                         # val_loss_value += val_mdn_loss.item() + val_softmax_xent_loss.item()
 
-                        # TODO: save output svg
-                        # val_output_svg = vector_to_svg(val_top_output.cpu().numpy())
-                        # val_save_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}.png")
-                        # val_save_svg = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}.html")
-                        # save_image(val_input_image, val_save_file, nrow=8, normalize=True)
-                        # with open(val_save_svg, 'w') as f:
-                        #     f.write(val_output_svg)
+                        val_svg_dec_out = val_top_output.detach().clone()
+                        val_svg_dec_out = val_svg_dec_out.view(val_svg_dec_out.size(1), val_svg_dec_out.size(0), val_svg_dec_out.size(2))  # batch first
+                        val_output_svgs = convert_to_svg(val_svg_dec_out.numpy())
+                        for val_i, val_one_svg in enumerate(val_output_svgs):
+                            val_cur_svg_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_svg_{val_i}.svg")
+                            with open(val_cur_svg_file, 'w') as f:
+                                f.write(val_one_svg)
+                        img_sample = torch.cat((input_image.data, vae_output_image.data), -2)
+                        save_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_input_vae.png")
+                        save_image(img_sample, save_file, nrow=8, normalize=True)
 
                     # val_loss_value /= 20
                     # val_msg = (
