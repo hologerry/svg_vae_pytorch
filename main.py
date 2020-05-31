@@ -282,7 +282,7 @@ def train_svg_decoder(opts):
             if opts.sample_freq > 0 and batches_done % opts.sample_freq == 0:
                 svg_decoder_output = top_output.detach().clone()
                 svg_decoder_output = svg_decoder_output.view(svg_decoder_output.size(1), svg_decoder_output.size(0), svg_decoder_output.size(2))  # batch first
-                output_svgs = convert_to_svg(svg_decoder_output.numpy())
+                output_svgs = convert_to_svg(svg_decoder_output.cpu().numpy())
                 for i, one_svg in enumerate(output_svgs):
                     cur_svg_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_svg_{i}.svg")
                     with open(cur_svg_file, 'w') as f:
@@ -330,7 +330,7 @@ def train_svg_decoder(opts):
 
                         val_svg_dec_out = val_top_output.detach().clone()
                         val_svg_dec_out = val_svg_dec_out.view(val_svg_dec_out.size(1), val_svg_dec_out.size(0), val_svg_dec_out.size(2))  # batch first
-                        val_output_svgs = convert_to_svg(val_svg_dec_out.numpy())
+                        val_output_svgs = convert_to_svg(val_svg_dec_out.cpu().numpy())
                         for val_i, val_one_svg in enumerate(val_output_svgs):
                             val_cur_svg_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_svg_{val_i}.svg")
                             with open(val_cur_svg_file, 'w') as f:
