@@ -164,8 +164,8 @@ class ConditionalVAE(BaseVAE):
         # z = self.encode(x)
 
         z = self.reparameterize(mu, log_var)
-        z = torch.cat([z, y], dim=1)
-        return [self.decode(z), input, z, mu, log_var]
+        z_y = torch.cat([z, y], dim=1)
+        return [self.decode(z_y), input, z, mu, log_var]
         # return [self.decode(z), input, z]
 
     def loss_function(self,

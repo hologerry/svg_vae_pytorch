@@ -12,7 +12,7 @@ from models.image_vae import ImageVAE
 
 class SVGLSTMDecoder(nn.Module):
     def __init__(self, input_channels=1, output_channels=1, num_categories=52,
-                 base_depth=32, bottleneck_bits=32, free_bits=0.15,
+                 bottleneck_bits=32, free_bits=0.15,
                  kl_beta=300, mode='train', max_sequence_length=51,
                  hidden_size=1024, use_cls=True, dropout_p=0.5,
                  twice_decoder=False, num_hidden_layers=4, feature_dim=10, ff_dropout=True):
@@ -28,7 +28,7 @@ class SVGLSTMDecoder(nn.Module):
             self.hidden_size = self.hidden_size * 2
         self.unbottleneck_dim = self.hidden_size * 2
 
-        self.unbotltenecks = [nn.Linear(bottleneck_bits, self.unbottleneck_dim) for _ in range(self.num_hidden_layers)]
+        self.unbotltenecks = nn.ModuleList([nn.Linear(bottleneck_bits, self.unbottleneck_dim) for _ in range(self.num_hidden_layers)])
 
         self.input_dim = feature_dim + bottleneck_bits + num_categories
         self.pre_lstm_fc = nn.Linear(self.input_dim, self.hidden_size)
@@ -48,15 +48,18 @@ class SVGLSTMDecoder(nn.Module):
         init_state_hidden = torch.cat(init_state_hidden, dim=0)
         init_state_cell = torch.cat(init_state_cell, dim=0)
         init_state = {}
-        init_state['hiden'] = init_state_hidden
+        init_state['hidden'] = init_state_hidden
         init_state['cell'] = init_state_cell
         return init_state
 
     def forward(self, inpt, sampled_bottleneck, clss, hidden, cell):
-        if self.mode == 'train':
-            clss = F.one_hot(clss, self.num_categories).to(device=inpt.device).float().squeeze(1)
-            inpt = torch.cat([inpt, sampled_bottleneck, clss], dim=-1)
-            inpt = self.pre_lstm_ac(self.pre_lstm_fc(inpt)).unsqueeze(0)
+        clss = clss.float()
+        if inpt.size(-1) != self.hidden_size:  # train and first time step in test
+            # clss = F.one_hot(clss, self.num_categories).to(device=inpt.device).float().squeeze(1)
+            inpt = torch.cat([inpt, sampled_bottleneck, clss], dim=-1)  # [batch_size, 10 + 32 + 52]
+            inpt = self.pre_lstm_ac(self.pre_lstm_fc(inpt))
+            inpt = inpt.unsqueeze(dim=0)
+            # print(inpt.size())
         if self.ff_dropout:
             inpt = self.dropout(inpt)
         output, (hidden, cell) = self.rnn(inpt, (hidden, cell))
@@ -170,9 +173,9 @@ class SVGMDNTop(nn.Module):
             return -torch.mean(torch.sum(v, dim=2), dim=[0, 1], keepdim=True)
         return -torch.mean(torch.sum(v, dim=2))
 
-    def svg_loss(self, mdn_top_out, target):
+    def svg_loss(self, mdn_top_out, target, mode='train'):
         """Compute loss for svg decoder model"""
-        assert self.mode == 'train', "Need compute loss in test mode"
+        assert mode == 'train', "Need compute loss in train mode"
         # target already in 10-dim mode, no need to mdn
         target_commands = target[..., :self.command_len]
         target_args = target[..., self.command_len:]
@@ -189,7 +192,7 @@ class SVGMDNTop(nn.Module):
         masktemplate = torch.Tensor([[0., 0., 0., 0., 0., 0.],
                                      [0., 0., 0., 0., 1., 1.],
                                      [0., 0., 0., 0., 1., 1.],
-                                     [1., 1., 1., 1., 1., 1.]])
+                                     [1., 1., 1., 1., 1., 1.]]).to(target_commands.device)
         mask = torch.matmul(target_commands, masktemplate)
         target_args_flat = target_args.reshape([-1, 1])
         mdn_loss = self.get_mdn_loss(out_logmix, out_mean, out_logstd, target_args_flat, mask)
