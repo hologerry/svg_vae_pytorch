@@ -16,7 +16,8 @@ def get_parser_basic():
     parser.add_argument('--free_bits_div', type=int, default=4, help='image vae free bits div, not used')
     parser.add_argument('--free_bits', type=float, default=0.15, help='image vae free bits')
     parser.add_argument('--num_categories', type=int, default=52, help='number of glyphs, original is 62')
-
+    parser.add_argument('--in_channel', type=int, default=1, help='input image channel')
+    parser.add_argument('--out_channel', type=int, default=1, help='output image channel')
     # data related
     parser.add_argument('--max_seq_len', type=int, default=51, help='maximum length of sequence')
     parser.add_argument('--seq_feature_dim', type=int, default=10,
@@ -48,8 +49,6 @@ def get_parser_image_vae():
     # model_name
     parser.add_argument('--hidden_size', type=int, default=32, help='image vae hidden_size, not used')
     parser.add_argument('--base_depth', type=int, default=32, help='image vae conv layer base depth')
-    parser.add_argument('--in_channel', type=int, default=1, help='input image channel')
-    parser.add_argument('--out_channel', type=int, default=1, help='output image channel')
     # problem related not clear
     parser.add_argument('--absolute', type=bool, default=False, help='')
     parser.add_argument('--just_render', type=bool, default=True, help='')
@@ -71,7 +70,7 @@ def get_parser_svg_decoder():
     parser.add_argument('--learning_rate_warmup_steps', type=int, default=1e5, help='')
     parser.add_argument('--vocab_size', type=int, default=None, help='')
     # loss params
-    parser.add_argument('--soft_k', type=int, default=10, helpe='')
+    parser.add_argument('--soft_k', type=int, default=10, help='')
     parser.add_argument('--mdn_k', type=int, default=1, help='')
     # LSTM
     parser.add_argument('--rec_dropout', type=int, default=0.3, help='LayerNormLSTMCelll, recurrent dropout')

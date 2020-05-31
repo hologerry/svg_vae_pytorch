@@ -345,8 +345,6 @@ def train_svg_decoder(opts):
     logfile.close()
     val_logfile.close()
 
-    pass
-
 
 def train(opts):
     if opts.model_name == 'image_vae':
