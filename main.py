@@ -171,7 +171,7 @@ def train_image_vae(opts):
 
 
 def train_svg_decoder(opts):
-    pass
+    # pass
     exp_dir = os.path.join("experiments", opts.experiment_name)
     # sample_dir = os.path.join(exp_dir, "samples")
     ckpt_dir = os.path.join(exp_dir, "checkpoints")

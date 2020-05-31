@@ -88,7 +88,7 @@ def get_parser_svg_decoder():
     parser.add_argument('--gauss_temperature', type=float, default=0.0001, help='')
     parser.add_argument('--dont_reduce_loss', type=bool, default=False, help='')
     # VAE hparameters (to load image encoder)
-    parser.add_argument('--vae_ckpt_path', type=str, default='')
+    parser.add_argument('--vae_ckpt_path', type=str, default='experiments_00_47_lr001_image_vae/checkpoints/image_vae_180.pth')
     # parser.add_argument('--vae_data_dir', type=str, default='')
     # problem related not clear
     parser.add_argument('--absolute', type=bool, default=False, help='')
