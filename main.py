@@ -30,7 +30,7 @@ def train_image_vae(opts):
     val_logfile = open(os.path.join(log_dir, "val_loss_log.txt"), 'w')
 
     train_loader = get_loader(opts.data_root, opts.max_seq_len, opts.seq_feature_dim, opts.batch_size, opts.mode)
-    val_loader = get_loader(opts.data_root, opts.max_seq_len, opts.seq_feature_dim, 1, 'test')
+    val_loader = get_loader(opts.data_root, opts.max_seq_len, opts.seq_feature_dim, opts.batch_size, 'test')
     opts.kl_beta = 1.0 / len(train_loader)  # This is from PyTorch-VAE
     # model = ImageVAE(input_channels=opts.in_channel, output_channels=opts.out_channel,
     #                  num_categories=opts.num_categories, base_depth=opts.base_depth,
@@ -114,8 +114,6 @@ def train_image_vae(opts):
                 val_b_loss = 0.0
                 with torch.no_grad():
                     for val_idx, val_data in enumerate(val_loader):
-                        if val_idx >= 20:
-                            break
                         val_input_image = val_data['rendered'].to(device)
                         # val_target_image = val_input_image.detach().clone()
                         val_target_clss = val_data['class'].to(device)
@@ -140,9 +138,9 @@ def train_image_vae(opts):
                         val_save_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}.png")
                         save_image(val_img_sample, val_save_file, nrow=8, normalize=True)
 
-                    val_loss /= 20
-                    val_img_rec_loss /= 20
-                    val_b_loss /= 20
+                    val_loss /= len(val_loader)
+                    val_img_rec_loss /= len(val_loader)
+                    val_b_loss /= len(val_loader)
 
                     if opts.tboard:
                         writer.add_scalar('VAL/loss', val_loss, batches_done)
@@ -182,7 +180,7 @@ def train_svg_decoder(opts):
     val_logfile = open(os.path.join(log_dir, "val_loss_log.txt"), 'w')
 
     train_loader = get_loader(opts.data_root, opts.max_seq_len, opts.seq_feature_dim, opts.batch_size, opts.mode)
-    val_loader = get_loader(opts.data_root, opts.max_seq_len, opts.seq_feature_dim, 1, 'test')
+    val_loader = get_loader(opts.data_root, opts.max_seq_len, opts.seq_feature_dim, opts.batch_size, 'test')
 
     # image_vae = ImageVAE(input_channels=opts.in_channel, output_channels=opts.out_channel,
     #                      num_categories=opts.num_categories, base_depth=opts.base_depth,
@@ -211,6 +209,7 @@ def train_svg_decoder(opts):
 
     image_vae.load_state_dict(torch.load(opts.vae_ckpt_path, map_location=device))
 
+    # TODO: joint train
     image_vae.eval()
 
     optimizer = Adam(svg_decoder.parameters(), lr=opts.lr, betas=(opts.beta1, opts.beta2), eps=opts.eps, weight_decay=opts.weight_decay)
@@ -286,11 +285,9 @@ def train_svg_decoder(opts):
             #     save_image(img_sample, save_file, nrow=8, normalize=True)
 
             if opts.val_freq > 0 and batches_done % opts.val_freq == 0:
-                val_loss_value = 0.0
+                # val_loss_value = 0.0
                 with torch.no_grad():
                     for val_idx, val_data in enumerate(val_loader):
-                        if val_idx >= 20:
-                            break
                         val_input_image = val_data['rendered'].to(device)
                         # val_target_image = val_input_image.detach().clone()
                         val_target_clss = val_data['class'].to(device)
@@ -316,7 +313,7 @@ def train_svg_decoder(opts):
 
                             val_inpt = val_output.detach()
 
-                        val_top_output = mdn_top_layer(val_outputs, 'test')
+                        val_top_output = mdn_top_layer(val_outputs, 'test')  # noqa
 
                         # val_svg_losses = mdn_top_layer.svg_loss(val_top_output, val_target_seq)
                         # val_mdn_loss, val_softmax_xent_loss = val_svg_losses['mdn_loss'], val_svg_losses['softmax_xent_loss']
@@ -361,8 +358,21 @@ def train(opts):
         raise NotImplementedError
 
 
-def test(opts):
+def test_image_vae(opts):
     pass
+
+
+def test_svg_decoder(opts):
+    pass
+
+
+def test(opts):
+    if opts.model_name == 'image_vae':
+        test_image_vae(opts)
+    elif opts.model_name == 'svg_decoder':
+        test_svg_decoder(opts)
+    else:
+        raise NotImplementedError
 
 
 def main():

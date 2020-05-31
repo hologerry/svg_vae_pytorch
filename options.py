@@ -26,7 +26,7 @@ def get_parser_basic():
     parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])
     parser.add_argument('--multi_gpu', type=bool, default=False)
     parser.add_argument('--experiment_name', type=str, default='experiment')
-    parser.add_argument('--data_root', type=str, default='svg_vae_data/glyph_pkl_dataset')
+    parser.add_argument('--data_root', type=str, default='svg_vae_data/glyph_pkl_dataset_10')
     parser.add_argument('--ckpt_freq', type=int, default=2, help='save checkpoint frequency of epoch')
     parser.add_argument('--sample_freq', type=int, default=100, help='sample train output of steps')
     parser.add_argument('--val_freq', type=int, default=1000, help='sample validate output of steps')
@@ -87,7 +87,7 @@ def get_parser_svg_decoder():
     parser.add_argument('--gauss_temperature', type=float, default=0.0001, help='')
     parser.add_argument('--dont_reduce_loss', type=bool, default=False, help='')
     # VAE hparameters (to load image encoder)
-    parser.add_argument('--vae_ckpt_path', type=str, default='experiments/experiment_00_47_lr001_image_vae/checkpoints/image_vae_180.pth')
+    parser.add_argument('--vae_ckpt_path', type=str, default='experiments/experiment_00_10_image_vae/checkpoints/image_vae_100.pth')
     # parser.add_argument('--vae_data_dir', type=str, default='')
     # problem related not clear
     parser.add_argument('--absolute', type=bool, default=False, help='')

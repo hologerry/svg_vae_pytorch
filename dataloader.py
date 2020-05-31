@@ -12,9 +12,9 @@ class SVGDataset(data.Dataset):
         super().__init__()
         self.mode = mode
         # self.pkl_path = os.path.join(root_path, self.mode, f'{mode}_all.pkl')
-        self.pkl_path = os.path.join(root_path, self.mode, f'{mode}_0000-0047.pkl')
+        self.pkl_path = os.path.join(root_path, self.mode, f'{mode}_0000-0010.pkl')
         pkl_f = open(self.pkl_path, 'rb')
-        print(f"Loading {self.pkl_path} pkl file ...")
+        print(f"Loading {self.pkl_path} pickle file ...")
         self.all_glyphs = pickle.load(pkl_f)
         pkl_f.close()
         print(f"Finished loading")
