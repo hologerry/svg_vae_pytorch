@@ -163,10 +163,15 @@ class SVGMDNTop(nn.Module):
     def get_mdn_loss(self, logmix, mean, logstd, args_flat, batch_mask):
         """Compute MDN loss term for svg decoder model."""
         logsqrttwopi = math.log(math.sqrt(2.0 * math.pi))
-
+        # print('logmix min', torch.min(logmix))
+        # print('mean min', torch.min(mean))
+        # print('logstd min', torch.min(logstd))
         lognorm = util_funcs.lognormal(args_flat, mean, logstd, logsqrttwopi)
+        # print('lognorm min', torch.min(lognorm))
         v = logmix + lognorm
+        # print('v min', torch.min(v))
         v = torch.logsumexp(v, 1, keepdim=True)
+        # print('v logsumexp min', torch.min(v))
         v = v.reshape([self.seq_len, -1, self.arg_len])
         v = v * batch_mask
         if self.dont_reduce:
@@ -196,8 +201,8 @@ class SVGMDNTop(nn.Module):
         mask = torch.matmul(target_commands, masktemplate)
         target_args_flat = target_args.reshape([-1, 1])
         mdn_loss = self.get_mdn_loss(out_logmix, out_mean, out_logstd, target_args_flat, mask)
-
-        softmax_xent_loss = F.softmax(F.binary_cross_entropy_with_logits(predict_commands, target_commands), dim=-1)
+        # print('mdn loss min', torch.min(mdn_loss))
+        softmax_xent_loss = torch.sum(- target_commands * F.log_softmax(predict_commands, -1), -1)
 
         if self.dont_reduce:
             softmax_xent_loss = torch.mean(softmax_xent_loss, dim=[1, 2], keepdim=True)

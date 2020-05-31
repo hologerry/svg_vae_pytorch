@@ -25,7 +25,7 @@ def get_parser_basic():
     # experiment related
     parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])
     parser.add_argument('--multi_gpu', type=bool, default=False)
-    parser.add_argument('--experiment_name', type=str, default='experiment')
+    parser.add_argument('--experiment_name', type=str, default='experiment_00_10')
     parser.add_argument('--data_root', type=str, default='svg_vae_data/glyph_pkl_dataset_10')
     parser.add_argument('--ckpt_freq', type=int, default=2, help='save checkpoint frequency of epoch')
     parser.add_argument('--sample_freq', type=int, default=100, help='sample train output of steps')
@@ -59,7 +59,7 @@ def get_parser_image_vae():
 
 def get_parser_svg_decoder():
     parser = get_parser_basic()
-    parser.add_argument('--batch_size', type=int, default=64, help='svg decoder batch size')
+    parser.add_argument('--batch_size', type=int, default=2, help='svg decoder batch size')
     parser.add_argument('--init_epoch', type=int, default=0, help='init epoch')
     parser.add_argument('--n_epochs', type=int, default=500, help='number of epochs')
     parser.add_argument('--hidden_size', type=int, default=1024, help='svg decoder hidden size')

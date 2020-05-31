@@ -261,7 +261,7 @@ def train_svg_decoder(opts):
             loss.backward()
             optimizer.step()
 
-            batches_done = epoch * len(train_loader) + idx
+            batches_done = epoch * len(train_loader) + idx + 1
 
             message = (
                 f"Epoch: {epoch}/{opts.n_epochs}, Batch: {idx}/{len(train_loader)}, "
@@ -270,7 +270,7 @@ def train_svg_decoder(opts):
                 f"softmax_xent_loss: {softmax_xent_loss.item():.6f}"
             )
             logfile.write(message + '\n')
-            if batches_done % 50 == 0:
+            if batches_done % 40 == 0:
                 print(message)
 
             if opts.tboard:
@@ -288,6 +288,8 @@ def train_svg_decoder(opts):
                 # val_loss_value = 0.0
                 with torch.no_grad():
                     for val_idx, val_data in enumerate(val_loader):
+                        if val_idx >= 20:
+                            break
                         val_input_image = val_data['rendered'].to(device)
                         # val_target_image = val_input_image.detach().clone()
                         val_target_clss = val_data['class'].to(device)

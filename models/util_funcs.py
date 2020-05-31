@@ -26,4 +26,10 @@ def length_form_embedding(emb):
 
 
 def lognormal(y, mean, logstd, logsqrttwopi):
-    return -0.5 * (y - mean) / torch.exp(logstd) ** 2 - logstd - logsqrttwopi
+    y_mean = y - mean
+    # print('y_mean min', torch.min(y_mean))
+    logstd_exp = logstd.exp()
+    # print('logstd exp', torch.min(logstd_exp))
+    y_mean_divide_exp = y_mean / logstd_exp
+    # print('y-mean/logstdexp', torch.min(y_mean_divide_exp))
+    return -0.5 * (y_mean_divide_exp) ** 2 - logstd - logsqrttwopi
