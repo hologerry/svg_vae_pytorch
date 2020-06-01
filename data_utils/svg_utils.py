@@ -861,12 +861,12 @@ def render(tensor, data_dir=None):
 
     # convert to html
     tensor = _make_simple_cmds_long(tensor)
-    vector = np.squeeze(np.squeeze(tensor, 0), 2)
-    html = _vector_to_svg(vector, stop_at_eos=True, categorical=True)
+    # vector = np.squeeze(np.squeeze(tensor, 0), 2)
+    html = _vector_to_svg(tensor, stop_at_eos=True, categorical=True)
 
     # some aesthetic postprocessing
-    html = postprocess(html)
-    html = html.replace('256px', '50px')
+    # html = postprocess(html)
+    # html = html.replace('256px', '50px')
 
     return html
 

@@ -216,7 +216,9 @@ class SVGMDNTop(nn.Module):
 
 
 if __name__ == "__main__":
-    from data_utils.svg_utils import convert_to_svg
+    from data_utils.svg_utils import render
+    from dataloader import get_loader
+    # from torchvision.utils import save_image
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     batch_size = 2
@@ -243,7 +245,6 @@ if __name__ == "__main__":
 
     trg = torch.randn((seq_len, batch_size, feature_dim)).to(device)  # [seq_len, batch_size, feature_dim]
     trg = util_funcs.shift_right(trg)
-    print(trg.size())
     trg_len = trg.size(0)
 
     outputs = torch.zeros(trg_len, batch_size, hidden_size).to(device)
@@ -264,24 +265,53 @@ if __name__ == "__main__":
         # print(output.size())
         teacher_force = random.random() < tearcher_force_ratio
 
-        inpt = trg[t] if (teacher_force and mode == 'train') else output.detach()
+        inpt = trg[t] if (teacher_force and mode == 'train') else output.clone().detach()
         # print(inpt.size())
 
-    # print(outputs.size())
+    # print("rnn output", outputs.size())
 
     mdn_top_layer = SVGMDNTop(mode=mode)
+    mdn_top_layer = mdn_top_layer.to(device)
 
-    top_output = mdn_top_layer(outputs)
-    # print(mode, top_output.size())
+    top_output = mdn_top_layer(outputs, 'test')
+    # print("top output", top_output.size())
+    # if mode == 'train':
+    #     svg_losses = mdn_top_layer.svg_loss(top_output, trg)
+    #     mdn_loss, softmax_xent_loss = svg_losses['mdn_loss'], svg_losses['softmax_xent_loss']
+    #     print(mdn_loss, softmax_xent_loss)
 
-    if mode == 'train':
-        svg_losses = mdn_top_layer.svg_loss(top_output, trg)
-        mdn_loss, softmax_xent_loss = svg_losses['mdn_loss'], svg_losses['softmax_xent_loss']
-        print(mdn_loss, softmax_xent_loss)
+    svg_decoder_output = top_output.clone().detach()
+    # print("decoder output", svg_decoder_output.size())
+    svg_decoder_output = svg_decoder_output.reshape(svg_decoder_output.size(1), svg_decoder_output.size(0), svg_decoder_output.size(2))  # batch first
 
-    svg_decoder_output = top_output.detach().clone()
-    svg_decoder_output = svg_decoder_output.view(svg_decoder_output.size(1), svg_decoder_output.size(0), svg_decoder_output.size(2))  # batch first
+    print("output size", svg_decoder_output.size())
+    output_html = render(svg_decoder_output[0].cpu().numpy())
 
-    output_svg = convert_to_svg(svg_decoder_output.numpy())
+    # print(output_html)
 
-    print(output_svg)
+    root_path = 'svg_vae_data/glyph_pkl_dataset_10'
+    max_seq_len = 51
+    seq_feature_dim = 10
+    batch_size = 2
+
+    loader = get_loader(root_path, max_seq_len, seq_feature_dim, batch_size, 'test')
+
+    for idx, batch in enumerate(loader):
+        if idx > 0:
+            break
+        # print('class', batch['class'].size())
+        # print('seq_len', batch['seq_len'].size())
+        # print('sequence', batch['sequence'].size())
+        # print('rendered', batch['rendered'].size())
+        # print(torch.max(batch['rendered']))
+        input_image = batch['rendered'].to(device)
+        sequence = batch['sequence'].to(device)
+        output_svg = render(sequence[0].cpu().numpy())
+        print(output_svg)
+        val_cur_svg_file = "gt_svg.svg"
+        with open(val_cur_svg_file, 'w') as f:
+            f.write(output_svg)
+
+        # img_sample = input_image.data
+        # save_file = "input.png"
+        # save_image(img_sample, save_file, nrow=8, normalize=True)

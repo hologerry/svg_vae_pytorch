@@ -50,7 +50,7 @@ def train_image_vae(opts):
     for epoch in range(opts.init_epoch, opts.n_epochs):
         for idx, data in enumerate(train_loader):
             input_image = data['rendered'].to(device)
-            # target_image = input_image.detach().clone()
+            # target_image = input_image.clone().detach()
             target_clss = data['class'].to(device)
             target_clss = F.one_hot(target_clss, num_classes=opts.num_categories).squeeze(dim=1)
             # input_image, target_clss = data
@@ -115,7 +115,7 @@ def train_image_vae(opts):
                 with torch.no_grad():
                     for val_idx, val_data in enumerate(val_loader):
                         val_input_image = val_data['rendered'].to(device)
-                        # val_target_image = val_input_image.detach().clone()
+                        # val_target_image = val_input_image.clone().detach()
                         val_target_clss = val_data['class'].to(device)
                         val_target_clss = F.one_hot(val_target_clss, num_classes=opts.num_categories).squeeze(dim=1)
                         # val_input_image, val_target_clss = val_data
@@ -222,7 +222,7 @@ def train_svg_decoder(opts):
     for epoch in range(opts.init_epoch, opts.n_epochs):
         for idx, data in enumerate(train_loader):
             input_image = data['rendered'].to(device)
-            # target_image = input_image.detach().clone()
+            # target_image = input_image.clone().detach()
             target_clss = data['class'].to(device)
             target_clss = F.one_hot(target_clss, num_classes=opts.num_categories).squeeze(dim=1)
             target_seq = data['sequence'].to(device)
@@ -249,7 +249,7 @@ def train_svg_decoder(opts):
                 # print(output.size())
                 teacher_force = random.random() < tearcher_force_ratio
 
-                inpt = target_seq[t] if (teacher_force and opts.mode == 'train') else output.detach().clone()
+                inpt = target_seq[t] if (teacher_force and opts.mode == 'train') else output.clone().detach()
                 # print(inpt.size())
 
             top_output = mdn_top_layer(outputs)
@@ -279,26 +279,10 @@ def train_svg_decoder(opts):
                 writer.add_scalar('Loss/mdn_loss', mdn_loss.item(), batches_done)
                 writer.add_scalar('Loss/softmax_xent_loss', softmax_xent_loss.item(), batches_done)
 
-            if opts.sample_freq > 0 and batches_done % opts.sample_freq == 0:
-                svg_decoder_output = top_output.detach().clone()
-                svg_decoder_output = svg_decoder_output.view(svg_decoder_output.size(1), svg_decoder_output.size(0), svg_decoder_output.size(2))  # batch first
-                output_htmls = render(svg_decoder_output.cpu().numpy())
-                for i, one_svg in enumerate(output_htmls):
-                    cur_svg_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_output_svg_{i}.html")
-                    with open(cur_svg_file, 'w') as f:
-                        f.write(one_svg)
-
-                svg_target = target_seq.detach().clone()
-                svg_target = svg_target.view(svg_target.size(1), svg_target.size(0), svg_target.size(2))  # batch first
-                gt_htmls = render(svg_target.cpu().numpy())
-                for i, one_svg in enumerate(gt_htmls):
-                    cur_svg_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_gt_svg_{i}.html")
-                    with open(cur_svg_file, 'w') as f:
-                        f.write(one_svg)
-
-                img_sample = torch.cat((input_image.data, vae_output_image.data), -2)
-                save_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_input_vae.png")
-                save_image(img_sample, save_file, nrow=8, normalize=True)
+            # if opts.sample_freq > 0 and batches_done % opts.sample_freq == 0:
+            #     img_sample = torch.cat((input_image.data, vae_output_image.data), -2)
+            #     save_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_input_vae.png")
+            #     save_image(img_sample, save_file, nrow=8, normalize=True)
 
             if opts.val_freq > 0 and batches_done % opts.val_freq == 0:
                 # val_loss_value = 0.0
@@ -307,7 +291,7 @@ def train_svg_decoder(opts):
                         if val_idx >= 20:
                             break
                         val_input_image = val_data['rendered'].to(device)
-                        # val_target_image = val_input_image.detach().clone()
+                        # val_target_image = val_input_image.clone().detach()
                         val_target_clss = val_data['class'].to(device)
                         val_target_clss = F.one_hot(val_target_clss, num_classes=opts.num_categories).squeeze(dim=1)
                         val_target_seq = val_data['sequence'].to(device)
@@ -329,28 +313,30 @@ def train_svg_decoder(opts):
                             val_output, val_hidden, val_cell = val_decoder_output['output'], val_decoder_output['hidden'], val_decoder_output['cell']
                             val_outputs[val_t] = val_output
 
-                            val_inpt = val_output.detach().clone()
+                            val_inpt = val_output.clone().detach()
 
-                        val_top_output = mdn_top_layer(val_outputs, 'test')  # noqa
+                        val_top_output = mdn_top_layer(val_outputs, 'test')
 
+                        # NOTE: dont cal loss in test
                         # val_svg_losses = mdn_top_layer.svg_loss(val_top_output, val_target_seq)
                         # val_mdn_loss, val_softmax_xent_loss = val_svg_losses['mdn_loss'], val_svg_losses['softmax_xent_loss']
                         # val_loss_value += val_mdn_loss.item() + val_softmax_xent_loss.item()
 
-                        val_svg_dec_out = val_top_output.detach().clone()
+                        val_svg_dec_out = val_top_output.clone().detach()
                         val_svg_dec_out = val_svg_dec_out.view(val_svg_dec_out.size(1), val_svg_dec_out.size(0), val_svg_dec_out.size(2))  # batch first
-                        val_output_htmls = render(val_svg_dec_out.cpu().numpy())
-                        for val_i, val_one_svg in enumerate(val_output_htmls):
-                            val_cur_svg_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_output_svg_{val_i}.html")
+                        for i, val_one_seq in enumerate(val_svg_dec_out):
+                            val_svg = render(val_one_seq.cpu().numpy())
+                            val_cur_svg_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_output_svg_{i}.svg")
                             with open(val_cur_svg_file, 'w') as f:
-                                f.write(val_one_svg)
-                        val_svg_target = val_target_seq.detach().clone()
+                                f.write(val_svg)
+
+                        val_svg_target = val_target_seq.clone().detach()
                         val_svg_target = val_svg_target.view(val_svg_target.size(1), val_svg_target.size(0), val_svg_target.size(2))  # batch first
-                        val_gt_htmls = render(val_svg_target.cpu().numpy())
-                        for i, one_svg in enumerate(val_gt_htmls):
-                            cur_svg_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_gt_svg_{i}.html")
+                        for i, one_gt_seq in enumerate(val_svg_target):
+                            gt_svg = render(one_gt_seq.cpu().numpy())
+                            cur_svg_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_gt_svg_{i}.svg")
                             with open(cur_svg_file, 'w') as f:
-                                f.write(one_svg)
+                                f.write(gt_svg)
 
                         val_img_sample = torch.cat((input_image.data, vae_output_image.data), -2)
                         val_save_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_input_vae.png")
