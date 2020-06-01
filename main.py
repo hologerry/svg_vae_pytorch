@@ -294,8 +294,9 @@ def train_svg_decoder(opts):
                         # val_target_image = val_input_image.clone().detach()
                         val_target_clss = val_data['class'].to(device)
                         val_target_clss = F.one_hot(val_target_clss, num_classes=opts.num_categories).squeeze(dim=1)
-                        val_target_seq = val_data['sequence'].to(device)
+                        val_gt_target_seq = val_data['sequence'].to(device)
                         # sequence first batch second
+                        val_target_seq = val_gt_target_seq.clone().detach()
                         val_target_seq = val_target_seq.reshape(val_target_seq.size(1), val_target_seq.size(0), val_target_seq.size(2))
                         val_target_seq = util_funcs.shift_right(val_target_seq)
 
@@ -330,7 +331,7 @@ def train_svg_decoder(opts):
                             with open(val_cur_svg_file, 'w') as f:
                                 f.write(val_svg)
 
-                        val_svg_target = val_target_seq.clone().detach()
+                        val_svg_target = val_gt_target_seq.clone().detach()
                         val_svg_target = val_svg_target.view(val_svg_target.size(1), val_svg_target.size(0), val_svg_target.size(2))  # batch first
                         for i, one_gt_seq in enumerate(val_svg_target):
                             gt_svg = render(one_gt_seq.cpu().numpy())
