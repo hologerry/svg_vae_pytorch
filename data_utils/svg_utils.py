@@ -16,6 +16,7 @@
 """Defines the Material Design Icons Problem."""
 import io
 import numpy as np
+import re
 
 from PIL import Image
 from itertools import zip_longest
@@ -669,6 +670,209 @@ def _vector_to_cmd(vector, categorical=False, return_floats=False):
 
 
 ############## UTILS FOR CONVERTING SVGS/VECTORS TO IMAGES ###################
+
+# From Infer notebook
+start = ("""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www."""
+         """w3.org/1999/xlink" width="256px" height="256px" style="-ms-trans"""
+         """form: rotate(360deg); -webkit-transform: rotate(360deg); transfo"""
+         """rm: rotate(360deg);" preserveAspectRatio="xMidYMid meet" viewBox"""
+         """="0 0 24 24"><path d=\"""")
+end = """\" fill="currentColor"/></svg>"""
+
+COMMAND_RX = re.compile("([MmLlHhVvCcSsQqTtAaZz])")
+FLOAT_RX = re.compile("[-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?")  # noqa
+
+
+def svg_html_to_path_string(svg):
+    return svg.replace(start, '').replace(end, '')
+
+
+def _tokenize(pathdef):
+    """Returns each svg token from path list."""
+    # e.g.: 'm0.1-.5c0,6' -> m', '0.1, '-.5', 'c', '0', '6'
+    for x in COMMAND_RX.split(pathdef):
+        if x != '' and x in 'MmLlHhVvCcSsQqTtAaZz':
+            yield x
+        for token in FLOAT_RX.findall(x):
+            yield token
+
+
+def path_string_to_tokenized_commands(path):
+    """Tokenizes the given path string.
+
+    E.g.:
+        Given M 0.5 0.5 l 0.25 0.25 z
+        Returns [['M', '0.5', '0.5'], ['l', '0.25', '0.25'], ['z']]
+    """
+    new_path = []
+    current_cmd = []
+    for token in _tokenize(path):
+        if len(current_cmd) > 0:
+            if token in 'MmLlHhVvCcSsQqTtAaZz':
+                # cmd ended, convert to vector and add to new_path
+                new_path.append(current_cmd)
+                current_cmd = [token]
+            else:
+                # add arg to command
+                current_cmd.append(token)
+        else:
+            # add to start new cmd
+            current_cmd.append(token)
+
+    if current_cmd:
+        # process command still unprocessed
+        new_path.append(current_cmd)
+
+    return new_path
+
+
+def separate_substructures(tokenized_commands):
+    """Returns a list of SVG substructures."""
+    # every moveTo command starts a new substructure
+    # an SVG substructure is a subpath that closes on itself
+    # such as the outter and the inner edge of the character `o`
+    substructures = []
+    curr = []
+    for cmd in tokenized_commands:
+        if cmd[0] in 'mM' and len(curr) > 0:
+            substructures.append(curr)
+            curr = []
+            curr.append(cmd)
+    if len(curr) > 0:
+        substructures.append(curr)
+    return substructures
+
+
+def postprocess(svg, dist_thresh=2., skip=False):
+    path = svg_html_to_path_string(svg)
+    svg_template = svg.replace(path, '{}')
+    tokenized_commands = path_string_to_tokenized_commands(path)
+
+    def dist(a, b):
+        return np.sqrt((float(a[0]) - float(b[0]))**2 + (float(a[1]) - float(b[1]))**2)
+
+    def are_close_together(a, b, t):
+        return dist(a, b) < t
+
+    # first, go through each start/end point and merge if they're close enough
+    # together (that is, make end point the same as the start point).
+    # TODO: there are better ways of doing this, in a way that propagates error
+    # back (so if total error is 0.2, go through all N commands in this
+    # substructure and fix each by 0.2/N (unless they have 0 vertical change))
+    substructures = separate_substructures(tokenized_commands)
+    previous_substructure_endpoint = (0., 0.,)
+    for substructure in substructures:
+        # first, if the last substructure's endpoint was updated, we must update
+        # the start point of this one to reflect the opposite update
+        substructure[0][-2] = str(float(substructure[0][-2]) -
+                                  previous_substructure_endpoint[0])
+        substructure[0][-1] = str(float(substructure[0][-1]) -
+                                  previous_substructure_endpoint[1])
+
+        start = list(map(float, substructure[0][-2:]))
+        curr_pos = (0., 0.)
+        for cmd in substructure:
+            curr_pos, _ = _update_curr_pos(curr_pos, cmd, (0., 0.))
+        if are_close_together(start, curr_pos, dist_thresh):
+            new_point = np.array(start)
+            previous_substructure_endpoint = ((new_point[0] - curr_pos[0]),
+                                              (new_point[1] - curr_pos[1]))
+            substructure[-1][-2] = str(float(substructure[-1][-2]) +
+                                       (new_point[0] - curr_pos[0]))
+            substructure[-1][-1] = str(float(substructure[-1][-1]) +
+                                       (new_point[1] - curr_pos[1]))
+            if substructure[-1][0] in 'cC':
+                substructure[-1][-4] = str(float(substructure[-1][-4]) +
+                                           (new_point[0] - curr_pos[0]))
+                substructure[-1][-3] = str(float(substructure[-1][-3]) +
+                                           (new_point[1] - curr_pos[1]))
+
+    if skip:
+        return svg_template.format(' '.join([' '.join(' '.join(cmd) for cmd in s)
+                                             for s in substructures]))
+
+    def cosa(x, y):
+        return (x[0] * y[0] + x[1] * y[1]) / ((np.sqrt(x[0]**2 + x[1]**2) * np.sqrt(y[0]**2 + y[1]**2)))
+
+    def rotate(a, x, y):
+        return (x * np.cos(a) - y * np.sin(a), y * np.cos(a) + x * np.sin(a))
+    # second, gotta find adjacent bezier curves and, if their control points
+    # are well enough aligned, fully align them
+    for substructure in substructures:
+        curr_pos = (0., 0.)
+        new_curr_pos, _ = _update_curr_pos((0., 0.,), substructure[0], (0., 0.))
+
+        for cmd_idx in range(1, len(substructure)):
+            prev_cmd = substructure[cmd_idx-1]
+            cmd = substructure[cmd_idx]
+
+            new_new_curr_pos, _ = _update_curr_pos(
+                new_curr_pos, cmd, (0., 0.))
+
+            if cmd[0] == 'c':
+                if prev_cmd[0] == 'c':
+                    # check the vectors and update if needed
+                    # previous control pt wrt new curr point
+                    prev_ctr_point = (curr_pos[0] + float(prev_cmd[3]) - new_curr_pos[0],
+                                      curr_pos[1] + float(prev_cmd[4]) - new_curr_pos[1])
+                    ctr_point = (float(cmd[1]), float(cmd[2]))
+
+                    if -1. < cosa(prev_ctr_point, ctr_point) < -0.95:
+                        # calculate exact angle between the two vectors
+                        angle_diff = (np.pi - np.arccos(cosa(prev_ctr_point, ctr_point)))/2
+
+                        # rotate each vector by angle/2 in the correct direction for each.
+                        sign = np.sign(np.cross(prev_ctr_point, ctr_point))
+                        new_ctr_point = rotate(sign * angle_diff, *ctr_point)
+                        new_prev_ctr_point = rotate(-sign * angle_diff, *prev_ctr_point)
+
+                        # override the previous control points
+                        # (which has to be wrt previous curr position)
+                        substructure[cmd_idx-1][3] = str(new_prev_ctr_point[0] -
+                                                         curr_pos[0] + new_curr_pos[0])
+                        substructure[cmd_idx-1][4] = str(new_prev_ctr_point[1] -
+                                                         curr_pos[1] + new_curr_pos[1])
+                        substructure[cmd_idx][1] = str(new_ctr_point[0])
+                        substructure[cmd_idx][2] = str(new_ctr_point[1])
+
+            curr_pos = new_curr_pos
+            new_curr_pos = new_new_curr_pos
+
+    return svg_template.format(' '.join([' '.join(' '.join(cmd) for cmd in s)
+                                         for s in substructures]))
+
+
+# def get_means_stdevs(data_dir):
+#     """Returns the means and stdev saved in data_dir."""
+#     if data_dir not in means_stdevs:
+#         with tf.gfile.Open(os.path.join(data_dir, 'mean.npz'), 'r') as f:
+#             mean_npz = np.load(f)
+#         with tf.gfile.Open(os.path.join(data_dir, 'stdev.npz'), 'r') as f:
+#             stdev_npz = np.load(f)
+#         means_stdevs[data_dir] = (mean_npz, stdev_npz)
+#     return means_stdevs[data_dir]
+
+
+def render(tensor, data_dir=None):
+    """Converts SVG decoder output into HTML svg."""
+    # undo normalization
+    # mean_npz, stdev_npz = get_means_stdevs(data_dir)
+    # tensor = (tensor * stdev_npz) + mean_npz
+
+    # convert to html
+    tensor = _make_simple_cmds_long(tensor)
+    vector = np.squeeze(np.squeeze(tensor, 0), 2)
+    html = _vector_to_svg(vector, stop_at_eos=True, categorical=True)
+
+    # some aesthetic postprocessing
+    html = postprocess(html)
+    html = html.replace('256px', '50px')
+
+    return html
+
+###############
+
+
 def convert_to_svg(decoder_output, categorical=False):
     converted = []
     for example in decoder_output:

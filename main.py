@@ -14,7 +14,7 @@ from models.svg_decoder import SVGLSTMDecoder, SVGMDNTop
 from models import util_funcs
 from options import (get_parser_basic, get_parser_image_vae,
                      get_parser_svg_decoder)
-from data_utils.svg_utils import convert_to_svg
+from data_utils.svg_utils import render
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -254,7 +254,7 @@ def train_svg_decoder(opts):
 
             top_output = mdn_top_layer(outputs)
 
-            svg_losses = mdn_top_layer.svg_loss(top_output, target_seq)
+            svg_losses = mdn_top_layer.html_loss(top_output, target_seq)
             mdn_loss, softmax_xent_loss = svg_losses['mdn_loss'], svg_losses['softmax_xent_loss']
             loss = mdn_loss + softmax_xent_loss
 
@@ -282,17 +282,17 @@ def train_svg_decoder(opts):
             if opts.sample_freq > 0 and batches_done % opts.sample_freq == 0:
                 svg_decoder_output = top_output.detach().clone()
                 svg_decoder_output = svg_decoder_output.view(svg_decoder_output.size(1), svg_decoder_output.size(0), svg_decoder_output.size(2))  # batch first
-                output_svgs = convert_to_svg(svg_decoder_output.cpu().numpy())
-                for i, one_svg in enumerate(output_svgs):
-                    cur_svg_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_output_svg_{i}.svg")
+                output_htmls = render(svg_decoder_output.cpu().numpy())
+                for i, one_svg in enumerate(output_htmls):
+                    cur_svg_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_output_svg_{i}.html")
                     with open(cur_svg_file, 'w') as f:
                         f.write(one_svg)
 
                 svg_target = target_seq.detach().clone()
                 svg_target = svg_target.view(svg_target.size(1), svg_target.size(0), svg_target.size(2))  # batch first
-                gt_svgs = convert_to_svg(svg_target.cpu().numpy())
-                for i, one_svg in enumerate(gt_svgs):
-                    cur_svg_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_gt_svg_{i}.svg")
+                gt_htmls = render(svg_target.cpu().numpy())
+                for i, one_svg in enumerate(gt_htmls):
+                    cur_svg_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_gt_svg_{i}.html")
                     with open(cur_svg_file, 'w') as f:
                         f.write(one_svg)
 
@@ -333,22 +333,22 @@ def train_svg_decoder(opts):
 
                         val_top_output = mdn_top_layer(val_outputs, 'test')  # noqa
 
-                        # val_svg_losses = mdn_top_layer.svg_loss(val_top_output, val_target_seq)
+                        # val_svg_losses = mdn_top_layer.html_loss(val_top_output, val_target_seq)
                         # val_mdn_loss, val_softmax_xent_loss = val_svg_losses['mdn_loss'], val_svg_losses['softmax_xent_loss']
                         # val_loss_value += val_mdn_loss.item() + val_softmax_xent_loss.item()
 
                         val_svg_dec_out = val_top_output.detach().clone()
                         val_svg_dec_out = val_svg_dec_out.view(val_svg_dec_out.size(1), val_svg_dec_out.size(0), val_svg_dec_out.size(2))  # batch first
-                        val_output_svgs = convert_to_svg(val_svg_dec_out.cpu().numpy())
-                        for val_i, val_one_svg in enumerate(val_output_svgs):
-                            val_cur_svg_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_output_svg_{val_i}.svg")
+                        val_output_htmls = render(val_svg_dec_out.cpu().numpy())
+                        for val_i, val_one_svg in enumerate(val_output_htmls):
+                            val_cur_svg_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_output_svg_{val_i}.html")
                             with open(val_cur_svg_file, 'w') as f:
                                 f.write(val_one_svg)
                         val_svg_target = val_target_seq.detach().clone()
                         val_svg_target = val_svg_target.view(val_svg_target.size(1), val_svg_target.size(0), val_svg_target.size(2))  # batch first
-                        val_gt_svgs = convert_to_svg(val_svg_target.cpu().numpy())
-                        for i, one_svg in enumerate(val_gt_svgs):
-                            cur_svg_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_gt_svg_{i}.svg")
+                        val_gt_htmls = render(val_svg_target.cpu().numpy())
+                        for i, one_svg in enumerate(val_gt_htmls):
+                            cur_svg_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_gt_svg_{i}.html")
                             with open(cur_svg_file, 'w') as f:
                                 f.write(one_svg)
 
