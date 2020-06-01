@@ -249,7 +249,7 @@ def train_svg_decoder(opts):
                 # print(output.size())
                 teacher_force = random.random() < tearcher_force_ratio
 
-                inpt = target_seq[t] if (teacher_force and opts.mode == 'train') else output.detach()
+                inpt = target_seq[t] if (teacher_force and opts.mode == 'train') else output.detach().clone()
                 # print(inpt.size())
 
             top_output = mdn_top_layer(outputs)
@@ -315,12 +315,12 @@ def train_svg_decoder(opts):
                         val_init_state = svg_decoder.init_state_input(val_sampled_bottleneck)
                         val_hidden, val_cell = val_init_state['hidden'], val_init_state['cell']
                         val_trg_len = val_target_seq.size(0)
-                        for t in range(1, val_trg_len):
+                        for val_t in range(1, val_trg_len):
                             val_decoder_output = svg_decoder(val_inpt, val_sampled_bottleneck, val_target_clss, val_hidden, val_cell)
                             val_output, val_hidden, val_cell = val_decoder_output['output'], val_decoder_output['hidden'], val_decoder_output['cell']
-                            val_outputs[t] = val_output
+                            val_outputs[val_t] = val_output
 
-                            val_inpt = val_output.detach()
+                            val_inpt = val_output.detach().clone()
 
                         val_top_output = mdn_top_layer(val_outputs, 'test')  # noqa
 
@@ -335,9 +335,9 @@ def train_svg_decoder(opts):
                             val_cur_svg_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_svg_{val_i}.svg")
                             with open(val_cur_svg_file, 'w') as f:
                                 f.write(val_one_svg)
-                        img_sample = torch.cat((input_image.data, vae_output_image.data), -2)
-                        save_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_input_vae.png")
-                        save_image(img_sample, save_file, nrow=8, normalize=True)
+                        val_img_sample = torch.cat((input_image.data, vae_output_image.data), -2)
+                        val_save_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_input_vae.png")
+                        save_image(val_img_sample, val_save_file, nrow=8, normalize=True)
 
                     # val_loss_value /= 20
                     # val_msg = (

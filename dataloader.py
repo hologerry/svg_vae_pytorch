@@ -6,6 +6,8 @@ import torch.utils.data as data
 import torchvision.transforms as T
 # from torchvision.datasets import CelebA
 
+torch.multiprocessing.set_sharing_strategy('file_system')
+
 
 class SVGDataset(data.Dataset):
     def __init__(self, root_path, max_seq_len=51, seq_feature_dim=10, transform=None, mode='train'):
