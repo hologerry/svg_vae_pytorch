@@ -254,7 +254,7 @@ def train_svg_decoder(opts):
 
             top_output = mdn_top_layer(outputs)
 
-            svg_losses = mdn_top_layer.html_loss(top_output, target_seq)
+            svg_losses = mdn_top_layer.svg_loss(top_output, target_seq)
             mdn_loss, softmax_xent_loss = svg_losses['mdn_loss'], svg_losses['softmax_xent_loss']
             loss = mdn_loss + softmax_xent_loss
 
@@ -333,7 +333,7 @@ def train_svg_decoder(opts):
 
                         val_top_output = mdn_top_layer(val_outputs, 'test')  # noqa
 
-                        # val_svg_losses = mdn_top_layer.html_loss(val_top_output, val_target_seq)
+                        # val_svg_losses = mdn_top_layer.svg_loss(val_top_output, val_target_seq)
                         # val_mdn_loss, val_softmax_xent_loss = val_svg_losses['mdn_loss'], val_svg_losses['softmax_xent_loss']
                         # val_loss_value += val_mdn_loss.item() + val_softmax_xent_loss.item()
 
