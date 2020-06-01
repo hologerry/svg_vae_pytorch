@@ -332,7 +332,6 @@ def train_svg_decoder(opts):
                                 f.write(val_svg)
 
                         val_svg_target = val_gt_target_seq.clone().detach()
-                        val_svg_target = val_svg_target.view(val_svg_target.size(1), val_svg_target.size(0), val_svg_target.size(2))  # batch first
                         for i, one_gt_seq in enumerate(val_svg_target):
                             gt_svg = render(one_gt_seq.cpu().numpy())
                             cur_svg_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_gt_svg_{i}.svg")
