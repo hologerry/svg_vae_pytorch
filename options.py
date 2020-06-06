@@ -59,11 +59,11 @@ def get_parser_image_vae():
 
 def get_parser_svg_decoder():
     parser = get_parser_basic()
-    parser.add_argument('--batch_size', type=int, default=64, help='svg decoder batch size')
+    parser.add_argument('--batch_size', type=int, default=8, help='svg decoder batch size')
     parser.add_argument('--init_epoch', type=int, default=0, help='init epoch')
-    parser.add_argument('--n_epochs', type=int, default=500, help='number of epochs')
-    parser.add_argument('--hidden_size', type=int, default=1024, help='svg decoder hidden size')
-    parser.add_argument('--num_hidden_layers', type=int, default=4, help='svg decoder number of hidden layers')
+    parser.add_argument('--n_epochs', type=int, default=100, help='number of epochs')
+    parser.add_argument('--hidden_size', type=int, default=256, help='svg decoder hidden size')
+    parser.add_argument('--num_hidden_layers', type=int, default=2, help='svg decoder number of hidden layers')
     parser.add_argument('--force_full_predict', type=bool, default=True, help='')
     parser.add_argument('--lr', type=float, default=0.005, help='learning rate')
     # parser.add_argument('--dropout', type=float, default=0.5, help='svg decoder dropout layer probability')

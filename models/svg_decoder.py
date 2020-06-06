@@ -21,6 +21,10 @@ class SVGLSTMDecoder(nn.Module):
         self.bottleneck_bits = bottleneck_bits
         self.num_categories = num_categories
         # self.sg_bottleneck = sg_bottleneck
+        self.command_len = 4
+        self.arg_len = 6
+        assert self.command_len + self.arg_len == feature_dim
+
         self.ff_dropout = ff_dropout
         self.num_hidden_layers = num_hidden_layers
         self.hidden_size = hidden_size
@@ -36,6 +40,7 @@ class SVGLSTMDecoder(nn.Module):
         if self.ff_dropout:
             self.dropout = nn.Dropout(dropout_p)
         self.rnn = nn.LSTM(self.hidden_size, self.hidden_size, self.num_hidden_layers, dropout=dropout_p)
+        self.predict_fc = nn.Linear(self.hidden_size, feature_dim)
 
     def init_state_input(self, sampled_bottleneck):
         init_state_hidden = []
@@ -52,6 +57,20 @@ class SVGLSTMDecoder(nn.Module):
         init_state['cell'] = init_state_cell
         return init_state
 
+    def decoder_loss(self, decoder_predict, target, mode='train'):
+        target_commands = target[..., :self.command_len]
+        target_args = target[..., self.command_len:]
+        predict_commands = decoder_predict[..., :self.command_len]
+        predict_args = decoder_predict[..., self.command_len:]
+        softmax_xent_loss = torch.sum(- target_commands * F.log_softmax(predict_commands, -1), -1)
+        softmax_xent_loss = torch.mean(softmax_xent_loss)
+        mse_loss = F.mse_loss(predict_args, target_args)
+        loss = {}
+        loss['loss'] = softmax_xent_loss * 1.0 + mse_loss * 2.0
+        loss['xent_loss'] = softmax_xent_loss
+        loss['mse_loss'] = mse_loss
+        return loss
+
     def forward(self, inpt, sampled_bottleneck, clss, hidden, cell):
         clss = clss.float()
         if inpt.size(-1) != self.hidden_size:  # train and first time step in test
@@ -63,7 +82,9 @@ class SVGLSTMDecoder(nn.Module):
         if self.ff_dropout:
             inpt = self.dropout(inpt)
         output, (hidden, cell) = self.rnn(inpt, (hidden, cell))
+        predict = self.predict_fc(output.sequence(0))
         decoder_output = {}
+        decoder_output['predict'] = predict
         decoder_output['output'] = output
         decoder_output['hidden'] = hidden
         decoder_output['cell'] = cell

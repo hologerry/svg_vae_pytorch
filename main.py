@@ -10,7 +10,8 @@ from tensorboardX import SummaryWriter
 from dataloader import get_loader
 # from models.image_vae import ImageVAE
 from models.vae import ConditionalVAE
-from models.svg_decoder import SVGLSTMDecoder, SVGMDNTop
+from models.svg_decoder import SVGLSTMDecoder
+# from models.svg_decoder import SVGMDNTop
 from models import util_funcs
 from options import (get_parser_basic, get_parser_image_vae,
                      get_parser_svg_decoder)
@@ -195,17 +196,17 @@ def train_svg_decoder(opts):
                                  hidden_size=opts.hidden_size, use_cls=opts.use_cls, dropout_p=opts.rec_dropout,
                                  twice_decoder=opts.twice_decoder, num_hidden_layers=opts.num_hidden_layers,
                                  feature_dim=opts.seq_feature_dim, ff_dropout=opts.ff_dropout)
-    mdn_top_layer = SVGMDNTop(num_mixture=opts.num_mixture, seq_len=opts.max_seq_len, hidden_size=opts.hidden_size,
-                              mode=opts.mode, mix_temperature=opts.mix_temperature,
-                              gauss_temperature=opts.gauss_temperature, dont_reduce=opts.dont_reduce_loss)
+    # mdn_top_layer = SVGMDNTop(num_mixture=opts.num_mixture, seq_len=opts.max_seq_len, hidden_size=opts.hidden_size,
+    #                           mode=opts.mode, mix_temperature=opts.mix_temperature,
+    #                           gauss_temperature=opts.gauss_temperature, dont_reduce=opts.dont_reduce_loss)
 
     if torch.cuda.is_available() and opts.multi_gpu:
         image_vae = nn.DataParallel(image_vae)
         svg_decoder = nn.DataParallel(svg_decoder)
-        mdn_top_layer = nn.DataParallel(mdn_top_layer)
+        # mdn_top_layer = nn.DataParallel(mdn_top_layer)
     image_vae = image_vae.to(device)
     svg_decoder = svg_decoder.to(device)
-    mdn_top_layer = mdn_top_layer.to(device)
+    # mdn_top_layer = mdn_top_layer.to(device)
 
     image_vae.load_state_dict(torch.load(opts.vae_ckpt_path, map_location=device))
 
@@ -226,10 +227,12 @@ def train_svg_decoder(opts):
             target_clss = data['class'].to(device)
             target_clss = F.one_hot(target_clss, num_classes=opts.num_categories).squeeze(dim=1)
             target_seq = data['sequence'].to(device)
+            gt_target_seq = target_seq.clone().detach()
             # sequence first batch second
             target_seq = target_seq.reshape(target_seq.size(1), target_seq.size(0), target_seq.size(2))
             target_seq = util_funcs.shift_right(target_seq)
-            outputs = torch.zeros(target_seq.size(0), target_seq.size(1), opts.hidden_size).to(device)
+            # outputs = torch.zeros(target_seq.size(0), target_seq.size(1), opts.hidden_size).to(device)
+            outputs = torch.zeros(target_seq.size(0), target_seq.size(1), target_seq.size(2)).to(device)
 
             vae_output = image_vae(input_image, target_clss)
             sampled_bottleneck = vae_output[2]  # z
@@ -243,7 +246,8 @@ def train_svg_decoder(opts):
 
             for t in range(1, trg_len):
                 decoder_output = svg_decoder(inpt, sampled_bottleneck, target_clss, hidden, cell)
-                output, hidden, cell = decoder_output['output'], decoder_output['hidden'], decoder_output['cell']
+                # output, hidden, cell = decoder_output['output'], decoder_output['hidden'], decoder_output['cell']
+                output, hidden, cell = decoder_output['predict'], decoder_output['hidden'], decoder_output['cell']
                 outputs[t] = output
 
                 # print(output.size())
@@ -252,11 +256,14 @@ def train_svg_decoder(opts):
                 inpt = target_seq[t] if (teacher_force and opts.mode == 'train') else output.clone().detach()
                 # print(inpt.size())
 
-            top_output = mdn_top_layer(outputs)
+            # top_output = mdn_top_layer(outputs)
 
-            svg_losses = mdn_top_layer.svg_loss(top_output, target_seq)
-            mdn_loss, softmax_xent_loss = svg_losses['mdn_loss'], svg_losses['softmax_xent_loss']
-            loss = mdn_loss + softmax_xent_loss
+            # svg_losses = mdn_top_layer.svg_loss(top_output, target_seq)
+            # mdn_loss, softmax_xent_loss = svg_losses['mdn_loss'], svg_losses['softmax_xent_loss']
+            # loss = mdn_loss + softmax_xent_loss
+            svg_losses = svg_decoder.decoder_loss(outputs, target_seq)
+            loss = svg_losses['loss']
+            mse_loss, softmax_xent_loss = svg_losses['mse_loss'], svg_losses['xent_loss']
 
             optimizer.zero_grad()
             loss.backward(retain_graph=True)
@@ -267,7 +274,7 @@ def train_svg_decoder(opts):
             message = (
                 f"Epoch: {epoch}/{opts.n_epochs}, Batch: {idx}/{len(train_loader)}, "
                 f"Loss: {loss.item():.6f}, "
-                f"mdn_loss: {mdn_loss.item():.6f}, "
+                f"mse_loss: {mse_loss.item():.6f}, "
                 f"softmax_xent_loss: {softmax_xent_loss.item():.6f}"
             )
             logfile.write(message + '\n')
@@ -276,16 +283,30 @@ def train_svg_decoder(opts):
 
             if opts.tboard:
                 writer.add_scalar('Loss/loss', loss.item(), batches_done)
-                writer.add_scalar('Loss/mdn_loss', mdn_loss.item(), batches_done)
+                writer.add_scalar('Loss/mdn_loss', mse_loss.item(), batches_done)
                 writer.add_scalar('Loss/softmax_xent_loss', softmax_xent_loss.item(), batches_done)
 
-            # if opts.sample_freq > 0 and batches_done % opts.sample_freq == 0:
-            #     img_sample = torch.cat((input_image.data, vae_output_image.data), -2)
-            #     save_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_input_vae.png")
-            #     save_image(img_sample, save_file, nrow=8, normalize=True)
+            if opts.sample_freq > 0 and batches_done % opts.sample_freq == 0:
+                svg_dec_out = outputs.clone().detach()
+                svg_dec_out = svg_dec_out.view(svg_dec_out.size(1), svg_dec_out.size(0), svg_dec_out.size(2))  # batch first
+                for i, one_seq in enumerate(svg_dec_out):
+                    svg = render(one_seq.cpu().numpy())
+                    cur_svg_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_output_svg_{i}.svg")
+                    with open(cur_svg_file, 'w') as f:
+                        f.write(svg)
+
+                svg_target = gt_target_seq.clone().detach()
+                for i, one_gt_seq in enumerate(svg_target):
+                    gt_svg = render(one_gt_seq.cpu().numpy())
+                    cur_svg_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_gt_svg_{i}.svg")
+                    with open(cur_svg_file, 'w') as f:
+                        f.write(gt_svg)
+                img_sample = torch.cat((input_image.data, vae_output_image.data), -2)
+                save_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_input_vae.png")
+                save_image(img_sample, save_file, nrow=8, normalize=True)
 
             if opts.val_freq > 0 and batches_done % opts.val_freq == 0:
-                # val_loss_value = 0.0
+                val_loss_value = 0.0
                 with torch.no_grad():
                     for val_idx, val_data in enumerate(val_loader):
                         if val_idx >= 20:
@@ -300,7 +321,7 @@ def train_svg_decoder(opts):
                         val_target_seq = val_target_seq.reshape(val_target_seq.size(1), val_target_seq.size(0), val_target_seq.size(2))
                         val_target_seq = util_funcs.shift_right(val_target_seq)
 
-                        val_outputs = torch.zeros(val_target_seq.size(0), val_target_seq.size(1), opts.hidden_size).to(device)
+                        val_outputs = torch.zeros(val_target_seq.size(0), val_target_seq.size(1), val_target_seq.size(2)).to(device)
 
                         vae_output = image_vae(val_input_image, val_target_clss)
                         val_sampled_bottleneck = vae_output[2]
@@ -311,19 +332,19 @@ def train_svg_decoder(opts):
                         val_trg_len = val_target_seq.size(0)
                         for val_t in range(1, val_trg_len):
                             val_decoder_output = svg_decoder(val_inpt, val_sampled_bottleneck, val_target_clss, val_hidden, val_cell)
-                            val_output, val_hidden, val_cell = val_decoder_output['output'], val_decoder_output['hidden'], val_decoder_output['cell']
+                            val_output, val_hidden, val_cell = val_decoder_output['predict'], val_decoder_output['hidden'], val_decoder_output['cell']
                             val_outputs[val_t] = val_output
 
                             val_inpt = val_output.clone().detach()
 
-                        val_top_output = mdn_top_layer(val_outputs, 'test')
+                        # val_top_output = mdn_top_layer(val_outputs, 'test')
 
-                        # NOTE: dont cal loss in test
-                        # val_svg_losses = mdn_top_layer.svg_loss(val_top_output, val_target_seq)
-                        # val_mdn_loss, val_softmax_xent_loss = val_svg_losses['mdn_loss'], val_svg_losses['softmax_xent_loss']
-                        # val_loss_value += val_mdn_loss.item() + val_softmax_xent_loss.item()
+                        val_svg_losses = svg_decoder.decoder_loss(outputs, target_seq)
+                        val_loss = val_svg_losses['loss']
+                        val_loss_value += val_loss.item()
+                        # val_mse_loss, val_softmax_xent_loss = val_svg_losses['mse_loss'], val_svg_losses['xent_loss']
 
-                        val_svg_dec_out = val_top_output.clone().detach()
+                        val_svg_dec_out = val_outputs.clone().detach()
                         val_svg_dec_out = val_svg_dec_out.view(val_svg_dec_out.size(1), val_svg_dec_out.size(0), val_svg_dec_out.size(2))  # batch first
                         for i, val_one_seq in enumerate(val_svg_dec_out):
                             val_svg = render(val_one_seq.cpu().numpy())
@@ -342,23 +363,23 @@ def train_svg_decoder(opts):
                         val_save_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_input_vae.png")
                         save_image(val_img_sample, val_save_file, nrow=8, normalize=True)
 
-                    # val_loss_value /= 20
-                    # val_msg = (
-                    #     f"Epoch: {epoch}/{opts.n_epochs}, Batch: {idx}/{len(train_loader)}, "
-                    #     f"MDN+Soft loss: {val_loss_value: .6f}"
-                    # )
-                    # val_logfile.write(val_msg + "\n")
-                    # print(val_msg)
+                    val_loss_value /= 20
+                    val_msg = (
+                        f"Epoch: {epoch}/{opts.n_epochs}, Batch: {idx}/{len(train_loader)}, "
+                        f"MSE+Soft loss: {val_loss_value: .6f}"
+                    )
+                    val_logfile.write(val_msg + "\n")
+                    print(val_msg)
 
         if epoch % opts.ckpt_freq == 0:
             decoder_model_file = os.path.join(ckpt_dir, f"{opts.model_name}_lstm_{epoch}.pth")
-            top_model_file = os.path.join(ckpt_dir, f"{opts.model_name}_top_{epoch}.pth")
+            # top_model_file = os.path.join(ckpt_dir, f"{opts.model_name}_top_{epoch}.pth")
             if torch.cuda.is_available() and opts.multi_gpu:
                 torch.save(svg_decoder.module.state_dict(), decoder_model_file)
-                torch.save(mdn_top_layer.module.state_dict(), top_model_file)
+                # torch.save(mdn_top_layer.module.state_dict(), top_model_file)
             else:
                 torch.save(svg_decoder.state_dict(), decoder_model_file)
-                torch.save(mdn_top_layer.state_dict(), top_model_file)
+                # torch.save(mdn_top_layer.state_dict(), top_model_file)
 
     logfile.close()
     val_logfile.close()
