@@ -82,7 +82,7 @@ class SVGLSTMDecoder(nn.Module):
         if self.ff_dropout:
             inpt = self.dropout(inpt)
         output, (hidden, cell) = self.rnn(inpt, (hidden, cell))
-        predict = self.predict_fc(output.sequence(0))
+        predict = self.predict_fc(output.squeeze(0))
         decoder_output = {}
         decoder_output['predict'] = predict
         decoder_output['output'] = output
