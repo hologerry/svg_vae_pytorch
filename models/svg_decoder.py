@@ -10,6 +10,11 @@ import models.util_funcs as util_funcs
 from models.vae import ConditionalVAE
 
 
+def init_weights(m):
+    for name, param in m.named_parameters():
+        nn.init.uniform_(param.data, -0.08, 0.08)
+
+
 class SVGLSTMDecoder(nn.Module):
     def __init__(self, input_channels=1, output_channels=1, num_categories=52,
                  bottleneck_bits=32, free_bits=0.15,

@@ -10,7 +10,7 @@ from tensorboardX import SummaryWriter
 from dataloader import get_loader
 # from models.image_vae import ImageVAE
 from models.vae import ConditionalVAE
-from models.svg_decoder import SVGLSTMDecoder
+from models.svg_decoder import SVGLSTMDecoder, init_weights
 # from models.svg_decoder import SVGMDNTop
 from models import util_funcs
 from options import (get_parser_basic, get_parser_image_vae,
@@ -196,6 +196,7 @@ def train_svg_decoder(opts):
                                  hidden_size=opts.hidden_size, use_cls=opts.use_cls, dropout_p=opts.rec_dropout,
                                  twice_decoder=opts.twice_decoder, num_hidden_layers=opts.num_hidden_layers,
                                  feature_dim=opts.seq_feature_dim, ff_dropout=opts.ff_dropout)
+    svg_decoder.apply(init_weights)
     # mdn_top_layer = SVGMDNTop(num_mixture=opts.num_mixture, seq_len=opts.max_seq_len, hidden_size=opts.hidden_size,
     #                           mode=opts.mode, mix_temperature=opts.mix_temperature,
     #                           gauss_temperature=opts.gauss_temperature, dont_reduce=opts.dont_reduce_loss)
@@ -261,6 +262,8 @@ def train_svg_decoder(opts):
             # svg_losses = mdn_top_layer.svg_loss(top_output, target_seq)
             # mdn_loss, softmax_xent_loss = svg_losses['mdn_loss'], svg_losses['softmax_xent_loss']
             # loss = mdn_loss + softmax_xent_loss
+            outputs = outputs[1:]
+            target_seq = target_seq[1:]
             svg_losses = svg_decoder.decoder_loss(outputs, target_seq)
             loss = svg_losses['loss']
             mse_loss, softmax_xent_loss = svg_losses['mse_loss'], svg_losses['xent_loss']
@@ -283,7 +286,7 @@ def train_svg_decoder(opts):
 
             if opts.tboard:
                 writer.add_scalar('Loss/loss', loss.item(), batches_done)
-                writer.add_scalar('Loss/mdn_loss', mse_loss.item(), batches_done)
+                writer.add_scalar('Loss/mse_loss', mse_loss.item(), batches_done)
                 writer.add_scalar('Loss/softmax_xent_loss', softmax_xent_loss.item(), batches_done)
 
             if opts.sample_freq > 0 and batches_done % opts.sample_freq == 0:
@@ -338,8 +341,9 @@ def train_svg_decoder(opts):
                             val_inpt = val_output.clone().detach()
 
                         # val_top_output = mdn_top_layer(val_outputs, 'test')
-
-                        val_svg_losses = svg_decoder.decoder_loss(outputs, target_seq)
+                        val_outputs = val_outputs[1:]
+                        val_target_seq = val_target_seq[1:]
+                        val_svg_losses = svg_decoder.decoder_loss(val_outputs, val_target_seq)
                         val_loss = val_svg_losses['loss']
                         val_loss_value += val_loss.item()
                         # val_mse_loss, val_softmax_xent_loss = val_svg_losses['mse_loss'], val_svg_losses['xent_loss']
