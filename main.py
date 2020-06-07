@@ -292,18 +292,18 @@ def train_svg_decoder(opts):
             if opts.sample_freq > 0 and batches_done % opts.sample_freq == 0:
                 svg_dec_out = outputs.clone().detach()
                 svg_dec_out = svg_dec_out.view(svg_dec_out.size(1), svg_dec_out.size(0), svg_dec_out.size(2))  # batch first
+                cur_svg_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_output_svg.svg")
                 for i, one_seq in enumerate(svg_dec_out):
                     svg = render(one_seq.cpu().numpy())
-                    cur_svg_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_output_svg_{i}.svg")
-                    with open(cur_svg_file, 'w') as f:
-                        f.write(svg)
+                    with open(cur_svg_file, 'a') as f:
+                        f.write(svg+'\n')
 
                 svg_target = gt_target_seq.clone().detach()
+                cur_svg_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_gt_svg_{i}.svg")
                 for i, one_gt_seq in enumerate(svg_target):
                     gt_svg = render(one_gt_seq.cpu().numpy())
-                    cur_svg_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_gt_svg_{i}.svg")
-                    with open(cur_svg_file, 'w') as f:
-                        f.write(gt_svg)
+                    with open(cur_svg_file, 'a') as f:
+                        f.write(gt_svg+'\n')
                 img_sample = torch.cat((input_image.data, vae_output_image.data), -2)
                 save_file = os.path.join(sample_dir, f"train_epoch_{epoch}_batch_{batches_done}_input_vae.png")
                 save_image(img_sample, save_file, nrow=8, normalize=True)
@@ -350,18 +350,18 @@ def train_svg_decoder(opts):
 
                         val_svg_dec_out = val_outputs.clone().detach()
                         val_svg_dec_out = val_svg_dec_out.view(val_svg_dec_out.size(1), val_svg_dec_out.size(0), val_svg_dec_out.size(2))  # batch first
+                        val_cur_svg_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_output_svg_{i}.svg")
                         for i, val_one_seq in enumerate(val_svg_dec_out):
                             val_svg = render(val_one_seq.cpu().numpy())
-                            val_cur_svg_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_output_svg_{i}.svg")
-                            with open(val_cur_svg_file, 'w') as f:
-                                f.write(val_svg)
+                            with open(val_cur_svg_file, 'a') as f:
+                                f.write(val_svg+'\n')
 
                         val_svg_target = val_gt_target_seq.clone().detach()
+                        val_cur_svg_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_gt_svg_{i}.svg")
                         for i, one_gt_seq in enumerate(val_svg_target):
                             gt_svg = render(one_gt_seq.cpu().numpy())
-                            cur_svg_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_gt_svg_{i}.svg")
-                            with open(cur_svg_file, 'w') as f:
-                                f.write(gt_svg)
+                            with open(val_cur_svg_file, 'a') as f:
+                                f.write(gt_svg+'\n')
 
                         val_img_sample = torch.cat((input_image.data, vae_output_image.data), -2)
                         val_save_file = os.path.join(sample_dir, f"val_epoch_{epoch}_batch_{batches_done}_input_vae.png")
